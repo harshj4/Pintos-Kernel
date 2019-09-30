@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -92,6 +93,11 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    // int64_t sleep_ts;
+    // int64_t sleep_dur;
+    
+    /* TODO */
+    int64_t sleep_wt;                   /* Wake time stamp for looping through blocked list. */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
