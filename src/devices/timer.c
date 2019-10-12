@@ -37,6 +37,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&blocked_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -90,10 +91,21 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-
+  // changes 12/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  intr_disable();
+  int wake_up_time = start + ticks;
+  struct thread *current = thread_current();
+  current-> sleep_wt = wake_up_time;
+  current-> status = THREAD_BLOCKED;
+  list_push_back(&blocked_list,&current->elem);
+  list_sort(&blocked_list, &wake_up_comparator, NULL);
+  
+  thread_block();
+  intr_enable();
+  //end_changes
+  // while (timer_elapsed (start) < ticks) 
+  //   thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -171,6 +183,23 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  // changes 12/10 harshal
+  struct thread *prospect;
+
+  struct list_elem *e = list_begin(&blocked_list);
+  while(e!=list_end(&blocked_list)){
+    prospect = list_entry (e, struct thread, elem);
+    if(prospect->sleep_wt <= ticks){
+        thread_unblock(prospect);
+        e =list_remove(e);
+    }
+    else{
+     break; 
+    }
+      
+  }
+  //end_changes
+
   thread_tick ();
 }
 
@@ -243,4 +272,13 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
+}
+
+bool wake_up_comparator(const struct list_elem *a,
+                        const struct list_elem *b,
+                        void *aux) {
+  struct thread *at = list_entry (a, struct thread, elem);
+  struct thread *bt = list_entry (b, struct thread, elem);
+  return at->sleep_wt < bt->sleep_wt;
+
 }

@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "list.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,14 +20,12 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
-
+//implemented by harshal on 12/10
+#define KOSAR
+//end_change
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
 static struct list ready_list;
-
-/* TODO: new variables*/
-static struct list blocked_list;
-static struct hash priority_bucket;
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
@@ -75,6 +74,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -91,8 +91,9 @@ static tid_t allocate_tid (void);
 void
 thread_init (void) 
 {
+  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-
+  #endif
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
@@ -218,8 +219,9 @@ void
 thread_block (void) 
 {
   ASSERT (!intr_context ());
+  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-
+  #endif
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
 }
@@ -239,7 +241,7 @@ thread_unblock (struct thread *t)
 
   ASSERT (is_thread (t));
 
-  old_level = intr_disable ();
+  old_level = intr_disable (); 
   ASSERT (t->status == THREAD_BLOCKED);
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
@@ -324,9 +326,9 @@ void
 thread_foreach (thread_action_func *func, void *aux)
 {
   struct list_elem *e;
-
+  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-
+  #endif
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
     {
@@ -520,9 +522,9 @@ void
 thread_schedule_tail (struct thread *prev)
 {
   struct thread *cur = running_thread ();
-  
+  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-
+  #endif
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
@@ -559,8 +561,9 @@ schedule (void)
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
-
+  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
+  #endif
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
