@@ -101,6 +101,7 @@ thread_init (void)
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
+  printf("\n\nThread init with size: %d\n\n", sizeof(initial_thread));
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 }
@@ -469,6 +470,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  printf("\nMAGIC NUM INIT: %u", t->magic);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

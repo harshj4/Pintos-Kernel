@@ -90,25 +90,30 @@ timer_elapsed (int64_t then)
    be turned on. */
 void
 timer_sleep (int64_t ticks) 
-{
+{ 
+  printf("Inside timersleep");
   int64_t start = timer_ticks ();
-  // changes 12/10 by harshal
+//   // changes 12/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
-  // intr_disable();
+  
   lock_acquire(&list_lock);
   int wake_up_time = start + ticks;
   struct thread *current = thread_current();
   current-> sleep_wt = wake_up_time;
-  current-> status = THREAD_BLOCKED;
+  uint64_t test1 = 0;
+  printf("\n\nSize inside sleep: %d %d %d\n\n", sizeof(*current), sizeof(current), sizeof(test1));
+  // current-> status = THREAD_BLOCKED;
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &wake_up_comparator, NULL);
-  
+  intr_disable();
   thread_block();
-  // intr_enable();
+  printf("thread blocked");
+  intr_enable();
   lock_release(&list_lock);
+  printf("lock released");
   //end_changes
   // while (timer_elapsed (start) < ticks) 
-  //   thread_yield ();
+    // thread_yield ();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -189,11 +194,20 @@ timer_interrupt (struct intr_frame *args UNUSED)
   // changes 12/10 harshal
 
   struct thread *prospect;
+  struct thread test;
+  {
+    /* data */
+  };
+  
+  
   // lock_acquire(&list_lock);
   struct list_elem *e = list_begin(&blocked_list);
   while(e!=list_end(&blocked_list)){
     prospect = list_entry (e, struct thread, elem);
     if(prospect->sleep_wt <= ticks){
+        printf("unblocking thread\n");
+        printf("%u\n",&prospect->magic);
+        // printf("\n\nThread with size: %d\n\n", sizeof(*prospect));
         thread_unblock(prospect);
         e =list_remove(e);
     }
@@ -204,7 +218,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   }
   // lock_release(&list_lock);
   //end_changes
-
+  
   thread_tick ();
 }
 

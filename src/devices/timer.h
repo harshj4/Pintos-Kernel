@@ -31,5 +31,5 @@ void timer_print_stats (void);
 bool wake_up_comparator(const struct list_elem *a,
                              const struct list_elem *b,
                              void *aux);
-struct lock *list_lock;
+struct lock list_lock;
 #endif /* devices/timer.h */
