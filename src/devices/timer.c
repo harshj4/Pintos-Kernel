@@ -38,6 +38,7 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&blocked_list);
+  lock_init(&list_lock);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -93,7 +94,8 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
   // changes 12/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
-  intr_disable();
+  // intr_disable();
+  lock_acquire(&list_lock);
   int wake_up_time = start + ticks;
   struct thread *current = thread_current();
   current-> sleep_wt = wake_up_time;
@@ -102,7 +104,8 @@ timer_sleep (int64_t ticks)
   list_sort(&blocked_list, &wake_up_comparator, NULL);
   
   thread_block();
-  intr_enable();
+  // intr_enable();
+  lock_release(&list_lock);
   //end_changes
   // while (timer_elapsed (start) < ticks) 
   //   thread_yield ();
@@ -184,8 +187,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   // changes 12/10 harshal
-  struct thread *prospect;
 
+  struct thread *prospect;
+  // lock_acquire(&list_lock);
   struct list_elem *e = list_begin(&blocked_list);
   while(e!=list_end(&blocked_list)){
     prospect = list_entry (e, struct thread, elem);
@@ -198,6 +202,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     }
       
   }
+  // lock_release(&list_lock);
   //end_changes
 
   thread_tick ();
