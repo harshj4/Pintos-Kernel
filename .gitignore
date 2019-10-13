@@ -2,3 +2,4 @@
 #   by uniquely naming them and adding that name here.
 pintos_ved.sh
 *.o
+.vscode/
