@@ -112,13 +112,19 @@ timer_sleep (int64_t ticks)
   printf("timer_sleep elem remove\n");
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &wake_up_comparator, NULL);
+  if(list_empty(&blocked_list)){
+    printf("Timer sleep: List is empty\n");
+  }
+  else{
+    printf("Timer Sleep: List is not empty\n");
+  }
   lock_release(&bl_lock);
   
   // No idea why this statement is used. Need to validate.
   
   
   // thread_block();
-  printf("thread %u blocked\n", &current->tid);
+  // printf("thread %u blocked\n", &current->tid);
 
   intr_enable();
   
@@ -208,18 +214,26 @@ timer_interrupt (struct intr_frame *args UNUSED)
   struct thread *prospect;
   
   // lock_try_acquire(&bl_lock);
+  // lock_acquire(&bl_lock);
   struct list_elem *e = list_begin(&blocked_list);
   // while(e!=NULL) {
-  while(e!=list_end(&blocked_list)) {
+  printf("before while\n");
+  if(list_empty(&blocked_list)){
+    printf("List is empty\n");
+  }
+  // while(e!=list_end(&blocked_list)) {
+  while(!list_empty(&blocked_list)) {
     prospect = list_entry (e, struct thread, elem);
     if(prospect->sleep_wt <= ticks) {
       printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
       e = list_next(e);
       thread_unblock(prospect);
-      print("Thread unblocked");
+      list_remove(&prospect);
+      printf("Thread unblocked\n");
     }
     else { break; } 
   }
+  printf("after while\n");
   // lock_release(&bl_lock);
   //end_changes
   
