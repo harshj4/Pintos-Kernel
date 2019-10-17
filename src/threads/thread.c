@@ -96,9 +96,9 @@ thread_init (void)
   #endif
   lock_init (&tid_lock);
   list_init (&ready_list);
-  list_init (&blocked_list);
-  lock_init (&bl_lock);
-  lock_init (&rl_lock);
+  // list_init (&blocked_list);
+  // lock_init (&bl_lock);
+  // lock_init (&rl_lock);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
