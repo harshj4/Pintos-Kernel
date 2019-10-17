@@ -231,16 +231,16 @@ thread_block (void)
   blocked->status = THREAD_BLOCKED;
   // TODO: Adding code for removing current process from ready_list.
   // VEDHARIS 10/17/2019
-  if(intr_context())
-    if(lock_try_acquire(&rl_lock)){
-      list_remove (&blocked->elem);
-      lock_release(&rl_lock);
-    }
-  else {
-    lock_acquire(&rl_lock);
-    list_remove (&blocked->elem);
-    lock_release(&rl_lock);
-  }
+  // if(intr_context())
+  //   if(lock_try_acquire(&rl_lock)){
+  //     list_remove (&blocked->elem);
+  //     lock_release(&rl_lock);
+  //   }
+  // else {
+  //   lock_acquire(&rl_lock);
+  //   list_remove (&blocked->elem);
+  //   lock_release(&rl_lock);
+  // }
   schedule ();
 }
 
