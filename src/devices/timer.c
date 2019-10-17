@@ -37,6 +37,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&blocked_list);
+  lock_init(&bl_lock);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -46,7 +48,7 @@ timer_calibrate (void)
   unsigned high_bit, test_bit;
 
   ASSERT (intr_get_level () == INTR_ON);
-  printf ("Calibrating timer... \n");
+  printf ("Calibrating timer...  ");
 
   /* Approximate loops_per_tick as the largest power-of-two
      still less than one timer tick. */
@@ -56,7 +58,7 @@ timer_calibrate (void)
       loops_per_tick <<= 1;
       ASSERT (loops_per_tick != 0);
     }
-  printf ("timer... \n");
+
   /* Refine the next 8 bits of loops_per_tick. */
   high_bit = loops_per_tick;
   for (test_bit = high_bit >> 1; test_bit != high_bit >> 10; test_bit >>= 1)
@@ -89,36 +91,28 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 { 
+  printf("Inside timersleep");
+  int64_t start = timer_ticks ();
 //   // changes 12/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
-  
+  intr_disable();
+  lock_acquire(&bl_lock);
+  int wake_up_time = start + ticks;
   struct thread *current = thread_current();
-  printf("Inside timer_sleep for %u\n", &current->tid);
-  
-  // set wakeup time.
-  current-> sleep_wt = ticks + timer_ticks();
-  
-  // TODO: May need a new lock to avoid changing vars of threads
-  // under use elsewhere.
-  // lock_acquire(&bl_lock);
-  printf("timer_sleep pre remove\n");
-  // if(&current->elem != NULL && current->elem.next != NULL && current->elem.prev != NULL)
-  list_remove(&current->elem);
-  printf("timer_sleep elem remove\n");
+  current-> sleep_wt = wake_up_time;
+  uint64_t test1 = 0;
+  printf("\n\nSize inside sleep: %d %d %d\n\n", sizeof(*current), sizeof(current), sizeof(test1));
+  // current-> status = THREAD_BLOCKED;
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &wake_up_comparator, NULL);
-  // lock_release(&bl_lock);
   
-  // No idea why this statement is used. Need to validate.
-  intr_disable();
+  // thread_block();
+  printf("thread blocked");
   
-  thread_block();
-  printf("thread %u blocked\n", &current->tid);
-
+  lock_release(&bl_lock);
   intr_enable();
-  
+  printf("lock released");
   //end_changes
-
   // while (timer_elapsed (start) < ticks) 
     // thread_yield ();
 }
@@ -201,20 +195,30 @@ timer_interrupt (struct intr_frame *args UNUSED)
   // changes 12/10 harshal
 
   struct thread *prospect;
+  struct thread test;
+  {
+    /* data */
+  };
   
-  // lock_try_acquire(&bl_lock);
+  
+  // lock_acquire(&list_lock);
   struct list_elem *e = list_begin(&blocked_list);
-  // while(e!=NULL) {
-  while(e!=list_end(&blocked_list)) {
+  while(e!=list_end(&blocked_list)){
     prospect = list_entry (e, struct thread, elem);
-    if(prospect->sleep_wt <= ticks) {
-      printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
-      e = list_next(e);
-      thread_unblock(prospect);
+    if(prospect->sleep_wt <= ticks){
+        printf("unblocking thread\n");
+        printf("%u\n",&prospect->sleep_wt);
+        // printf("\n\nThread with size: %d\n\n", sizeof(*prospect));
+        thread_unblock(prospect);
+        printf("\nThread &d unblocked\n",&prospect->tid);
+        e =list_remove(e);
     }
-    else { break; } 
+    else{
+     break; 
+    }
+      
   }
-  // lock_release(&bl_lock);
+  // lock_release(&list_lock);
   //end_changes
   
   thread_tick ();

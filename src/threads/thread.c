@@ -231,16 +231,16 @@ thread_block (void)
   blocked->status = THREAD_BLOCKED;
   // TODO: Adding code for removing current process from ready_list.
   // VEDHARIS 10/17/2019
-  // if(intr_context())
-  //   if(lock_try_acquire(&rl_lock)){
-  //     list_remove (&blocked->elem);
-  //     lock_release(&rl_lock);
-  //   }
-  // else {
-  //   lock_acquire(&rl_lock);
-  //   list_remove (&blocked->elem);
-  //   lock_release(&rl_lock);
-  // }
+  if(intr_context())
+    if(lock_try_acquire(&rl_lock)){
+      list_remove (&blocked->elem);
+      lock_release(&rl_lock);
+    }
+  else {
+    lock_acquire(&rl_lock);
+    list_remove (&blocked->elem);
+    lock_release(&rl_lock);
+  }
   schedule ();
 }
 
@@ -262,10 +262,10 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable (); 
   ASSERT (t->status == THREAD_BLOCKED);
-  printf("unblock pre remove\n");
+  // printf("unblock pre remove\n");
   if(&t->elem != NULL && t->elem.next != NULL && t->elem.prev != NULL)
     list_remove(&t->elem);            // VEDHARIS 10/17/2019
-  printf("unblock elem removed\n");
+  // printf("unblock elem removed\n");
   list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
