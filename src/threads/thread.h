@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "devices/timer.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -92,6 +93,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    struct list_elem bl_elem;           /* UNUSED. List element used in blocked_list.*/
     int64_t sleep_wt;                   /* Used to store wake up tick time of thread if sleeping */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -108,6 +110,11 @@ struct thread
 extern bool thread_mlfqs;
 // Stores blocked threads 
 static struct list blocked_list;
+
+//Lock for ready_list.
+struct lock rl_lock;
+//Lock for blocked_list.
+struct lock bl_lock;
 void thread_init (void);
 void thread_start (void);
 
