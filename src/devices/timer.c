@@ -104,19 +104,20 @@ timer_sleep (int64_t ticks)
   
   // TODO: May need a new lock to avoid changing vars of threads
   // under use elsewhere.
-  // lock_acquire(&bl_lock);
+  intr_disable();
+  lock_acquire(&bl_lock);
   printf("timer_sleep pre remove\n");
   // if(&current->elem != NULL && current->elem.next != NULL && current->elem.prev != NULL)
   list_remove(&current->elem);
   printf("timer_sleep elem remove\n");
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &wake_up_comparator, NULL);
-  // lock_release(&bl_lock);
+  lock_release(&bl_lock);
   
   // No idea why this statement is used. Need to validate.
-  intr_disable();
   
-  thread_block();
+  
+  // thread_block();
   printf("thread %u blocked\n", &current->tid);
 
   intr_enable();
@@ -215,6 +216,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
       printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
       e = list_next(e);
       thread_unblock(prospect);
+      print("Thread unblocked");
     }
     else { break; } 
   }
