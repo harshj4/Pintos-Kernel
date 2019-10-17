@@ -93,7 +93,7 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 { 
-//   // changes 12/10 by harshal
+//   // changes 17/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
   
   struct thread *current = thread_current();
@@ -106,27 +106,24 @@ timer_sleep (int64_t ticks)
   // under use elsewhere.
   intr_disable();
   lock_acquire(&bl_lock);
-  printf("timer_sleep pre remove\n");
+  // printf("timer_sleep pre remove\n");
   // if(&current->elem != NULL && current->elem.next != NULL && current->elem.prev != NULL)
   // list_remove(&current->elem);
-  printf("timer_sleep elem remove\n");
+  // printf("timer_sleep elem remove\n");
+
+  // IMP: Don't remove thread from ready list before putting it into another list. Because, internal implementations may be different.
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &wake_up_comparator, NULL);
-  if(list_empty(&blocked_list)){
-    printf("Timer sleep: List is empty\n");
-  }
-  else{
-    printf("Timer Sleep: List is not empty\n");
-  }
   lock_release(&bl_lock);
-  
+  thread_block();
+  intr_enable();
   // No idea why this statement is used. Need to validate.
   
   
-  thread_block();
+  
   // printf("thread %u blocked\n", &current->tid);
 
-  intr_enable();
+  
   
   //end_changes
 
@@ -209,32 +206,23 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
-  // changes 12/10 harshal
+  // changes 17/10 harshal
 
   struct thread *prospect;
   
   lock_try_acquire(&bl_lock);
-  // lock_acquire(&bl_lock);
   struct list_elem *e = list_begin(&blocked_list);
-  // while(e!=NULL) {
-  // printf("before while\n");
-  // if(list_empty(&blocked_list)){
-  //   printf("List is empty\n");
-  // }
   while(e!=list_end(&blocked_list)) {
-  // while(!list_empty(&blocked_list)) {
     prospect = list_entry (e, struct thread, elem);
     if(prospect->sleep_wt <= ticks) {
       printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
       e = list_next(e);
-      // list_remove(&prospect);
       thread_unblock(prospect);
       
       printf("Thread unblocked\n");
     }
     else { break; } 
   }
-  // printf("after while\n");
   if(lock_held_by_current_thread){
     lock_release(&bl_lock);
   }
