@@ -101,8 +101,7 @@ timer_sleep (int64_t ticks)
   // set wakeup time.
   current-> sleep_wt = ticks + timer_ticks();
   
-  // TODO: May need a new lock to avoid changing vars of threads
-  // under use elsewhere.
+  // TODO: Interrupt may be needed. Not sure.
   
   lock_acquire(&bl_lock);
 
