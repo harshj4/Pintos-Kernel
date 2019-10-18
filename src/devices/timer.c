@@ -97,7 +97,6 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
   
   struct thread *current = thread_current();
-  printf("Inside timer_sleep for %u\n", &current->tid);
   
   // set wakeup time.
   current-> sleep_wt = ticks + timer_ticks();
@@ -106,25 +105,13 @@ timer_sleep (int64_t ticks)
   // under use elsewhere.
   intr_disable();
   lock_acquire(&bl_lock);
-  // printf("timer_sleep pre remove\n");
-  // if(&current->elem != NULL && current->elem.next != NULL && current->elem.prev != NULL)
-  // list_remove(&current->elem);
-  // printf("timer_sleep elem remove\n");
 
   // IMP: Don't remove thread from ready list before putting it into another list. Because, internal implementations may be different.
   list_push_back(&blocked_list,&current->elem);
-  list_sort(&blocked_list, &wake_up_comparator, NULL);
+  list_sort(&blocked_list, &timer_priority_comparator, NULL);
   lock_release(&bl_lock);
   thread_block();
-  intr_enable();
-  // No idea why this statement is used. Need to validate.
-  
-  
-  
-  // printf("thread %u blocked\n", &current->tid);
 
-  
-  
   //end_changes
 
   // while (timer_elapsed (start) < ticks) 
@@ -215,11 +202,11 @@ timer_interrupt (struct intr_frame *args UNUSED)
   while(e!=list_end(&blocked_list)) {
     prospect = list_entry (e, struct thread, elem);
     if(prospect->sleep_wt <= ticks) {
-      printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
+      // printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
       e = list_next(e);
       thread_unblock(prospect);
       
-      printf("Thread unblocked\n");
+      // printf("Thread unblocked\n");
     }
     else { break; } 
   }
@@ -309,4 +296,15 @@ bool wake_up_comparator(const struct list_elem *a,
   struct thread *bt = list_entry (b, struct thread, elem);
   return at->sleep_wt < bt->sleep_wt;
 
+}
+
+
+bool timer_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+  struct thread *at = list_entry (a, struct thread, elem);
+  struct thread *bt = list_entry (b, struct thread, elem);
+  if(at->sleep_wt < bt->sleep_wt)
+    return true;
+  else if(at->sleep_wt == bt->sleep_wt)
+    return at->priority > bt->priority;
+  return false;
 }
