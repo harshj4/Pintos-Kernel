@@ -289,16 +289,6 @@ real_time_delay (int64_t num, int32_t denom)
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
 }
 
-bool wake_up_comparator(const struct list_elem *a,
-                        const struct list_elem *b,
-                        void *aux) {
-  struct thread *at = list_entry (a, struct thread, elem);
-  struct thread *bt = list_entry (b, struct thread, elem);
-  return at->sleep_wt < bt->sleep_wt;
-
-}
-
-
 bool timer_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
   struct thread *at = list_entry (a, struct thread, elem);
   struct thread *bt = list_entry (b, struct thread, elem);
