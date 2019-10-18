@@ -103,7 +103,7 @@ timer_sleep (int64_t ticks)
   
   // TODO: May need a new lock to avoid changing vars of threads
   // under use elsewhere.
-  intr_disable();
+  
   lock_acquire(&bl_lock);
 
   // IMP: Don't remove thread from ready list before putting it into another list. Because, internal implementations may be different.

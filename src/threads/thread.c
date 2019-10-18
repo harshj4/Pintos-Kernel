@@ -222,6 +222,7 @@ thread_create (const char *name, int priority,
 void
 thread_block (void) 
 {
+  intr_disable();
   ASSERT (!intr_context ());
   #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
