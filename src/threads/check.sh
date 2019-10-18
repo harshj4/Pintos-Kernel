@@ -21,6 +21,6 @@ priority-sema.result)
 
 for i in ${fl[@]}
 do
-	{ echo -ne $i "\t" & head -1 /home/ved/Pintos-Kernel/src/threads/build/tests/threads/$i  ; }
+	{ echo -ne $i "\t" & head -1 ./build/tests/threads/$i  ; }
 done
 
