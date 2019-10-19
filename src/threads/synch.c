@@ -236,7 +236,7 @@ lock_acquire (struct lock *lock)
     sema_down (&lock->semaphore);
     lock->holder = cur;
   }
-  else if(owner->priority < cur->priority) {
+  else if(owner->priority <= cur->priority) {
     if(owner->donated_priority > cur->priority) { // donated already
       called_by_lock = true;
       sema_down (&lock->semaphore);
