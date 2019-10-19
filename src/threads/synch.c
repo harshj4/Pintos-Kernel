@@ -68,7 +68,14 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      struct thread * cur = thread_current ();
+      // if(cur->elem.next != NULL && cur->elem.prev != NULL)
+        // list_remove(&cur->elem);
+      // list_push_back (&sema->waiters, &thread_current ()->elem);
+      // list_push_front (&sema->waiters, &cur->elem);
+      list_push_back (&sema->waiters, &cur->elem);
+      // Added by VEDHARIS on 10/19
+      list_sort(&sema->waiters, &priority_comparator, NULL);
       thread_block ();
     }
   sema->value--;
@@ -117,6 +124,27 @@ sema_up (struct semaphore *sema)
     thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                 struct thread, elem));
   sema->value++;
+
+  if(called_by_cv){
+    called_by_lock = false;
+    called_by_cv = false;
+    intr_set_level (old_level);
+    thread_yield();
+  }
+  else
+  if(called_by_lock) {
+    called_by_lock = false;
+  }
+  else {
+    // TODO: add code for rescheduling
+    if(intr_context ())
+      intr_yield_on_return();
+    else {
+      intr_set_level (old_level);
+      thread_yield();
+    }
+  }
+
   intr_set_level (old_level);
 }
 
@@ -195,7 +223,7 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-
+  called_by_lock = true;
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -213,7 +241,7 @@ lock_try_acquire (struct lock *lock)
 
   ASSERT (lock != NULL);
   ASSERT (!lock_held_by_current_thread (lock));
-
+  called_by_lock = true;
   success = sema_try_down (&lock->semaphore);
   if (success)
     lock->holder = thread_current ();
@@ -296,6 +324,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   
   sema_init (&waiter.semaphore, 0);
   list_push_back (&cond->waiters, &waiter.elem);
+  // list_sort(&cond->waiters, &priority_comparator, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -315,6 +344,9 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
+  //TODO: may need to implement donation
+
+  called_by_cv = true;
 
   if (!list_empty (&cond->waiters)) 
     sema_up (&list_entry (list_pop_front (&cond->waiters),

@@ -32,6 +32,22 @@ fl=(
 
 for i in ${fl[@]}
 do
-	{ echo -ne $i "\t" & head -1 ./build/tests/threads/$i  ; }
+    
+    len=$(echo -n $i | wc -c)
+    len=$(expr $len / 8)
+    len=$(expr 6 - $len)
+    echo -n $i
+    printf "%0.s\t" $(seq 1 $len)
+    
+    if [ -f ./build/tests/threads/$i ]; then
+        state=$(head -1 ./build/tests/threads/$i)
+        if [ $state = "PASS" ]; then
+            echo -e "\033[0;42m $state\033[0m"
+        else
+            echo -e "\033[0;41m $state\033[0m"
+        fi
+    else
+        echo -e "\033[0;44m PENDING\033[0m"
+    fi
 done
 

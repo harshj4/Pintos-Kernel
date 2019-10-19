@@ -209,7 +209,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-  if(priority_comparator > thread_current()->priority){
+  // first = list_entry(list_front(&ready_list), struct thread, elem);
+  if(priority > thread_current()->priority){
+  // if(t != first){
     thread_yield();
   }
   return tid;
@@ -234,16 +236,7 @@ thread_block (void)
   blocked->status = THREAD_BLOCKED;
   // TODO: Adding code for removing current process from ready_list.
   // VEDHARIS 10/17/2019
-  // if(intr_context())
-  //   if(lock_try_acquire(&rl_lock)){
-  //     list_remove (&blocked->elem);
-  //     lock_release(&rl_lock);
-  //   }
-  // else {
-  //   lock_acquire(&rl_lock);
-  //   list_remove (&blocked->elem);
-  //   lock_release(&rl_lock);
-  // }
+
   schedule ();
 }
 
@@ -270,10 +263,7 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   list_sort(&ready_list, &priority_comparator, NULL);
   t->status = THREAD_READY;
-  // schedule();
-  // if(intr_get_level() != old_level){
-      intr_set_level (old_level);
-  // }
+  intr_set_level (old_level);
   
 }
 
@@ -337,16 +327,25 @@ void
 thread_yield (void) 
 {
   struct thread *cur = thread_current ();
-  enum intr_level old_level;
-  
+  enum intr_level old_level; 
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+  // TODO: empty flag check for round_robin_flag in future.
+
+  if (cur != idle_thread) {
+    // PUSH_FRONT incase current thread has same priority as 
+    //  some other threads. This way, it can get scheduled
+    //  before its peers.
+    // list_push_front (&ready_list, &cur->elem);
+    // list_insert_ordered (&ready_list, &cur->elem, &priority_comparator, NULL);
     list_push_back (&ready_list, &cur->elem);
     list_sort(&ready_list, &priority_comparator, NULL);
+  }
+
   cur->status = THREAD_READY;
   schedule ();
+
   intr_set_level (old_level);
 }
 
@@ -507,6 +506,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->donated_priority = -1;
   // t->sleep_wt = timer_ticks ();
   t->magic = THREAD_MAGIC;
   #ifdef VERBOSE

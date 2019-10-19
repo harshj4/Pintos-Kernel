@@ -196,24 +196,28 @@ timer_interrupt (struct intr_frame *args UNUSED)
   struct thread *prospect;
   
   lock_try_acquire(&bl_lock);
-  struct list_elem *e = list_begin(&blocked_list);
-  while(e!=list_end(&blocked_list)) {
-    prospect = list_entry (e, struct thread, elem);
-    if(prospect->sleep_wt <= ticks) {
-      // printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
-      e = list_next(e);
-      thread_unblock(prospect);
-      
-      // printf("Thread unblocked\n");
+  // if(lock_try_acquire(&bl_lock)) {
+    struct list_elem *e = list_begin(&blocked_list);
+    while(e!=list_end(&blocked_list)) {
+      prospect = list_entry (e, struct thread, elem);
+      if(prospect->sleep_wt <= ticks) {
+        // printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
+        e = list_next(e);
+        thread_unblock(prospect);
+        // printf("Thread unblocked\n");
+      }
+      else { break; } 
     }
-    else { break; } 
-  }
-  if(lock_held_by_current_thread){
+    // lock_release(&bl_lock);
+  // }
+  if(lock_held_by_current_thread(&bl_lock)){
     lock_release(&bl_lock);
   }
   //end_changes
   
   thread_tick ();
+  intr_yield_on_return();
+
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
