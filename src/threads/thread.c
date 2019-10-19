@@ -209,7 +209,9 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  if(priority_comparator > thread_current()->priority){
+    thread_yield();
+  }
   return tid;
 }
 
@@ -268,7 +270,7 @@ thread_unblock (struct thread *t)
   list_push_back (&ready_list, &t->elem);
   list_sort(&ready_list, &priority_comparator, NULL);
   t->status = THREAD_READY;
-  schedule();
+  // schedule();
   // if(intr_get_level() != old_level){
       intr_set_level (old_level);
   // }
@@ -342,6 +344,7 @@ thread_yield (void)
   old_level = intr_disable ();
   if (cur != idle_thread) 
     list_push_back (&ready_list, &cur->elem);
+    list_sort(&ready_list, &priority_comparator, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -369,6 +372,15 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  lock_acquire(&rl_lock);
+  list_sort(&ready_list,&priority_comparator,NULL);
+  struct list_elem *e = list_begin(&ready_list);
+  struct thread *head = list_entry (e, struct thread, elem);
+  lock_release(&rl_lock);
+  if(head->priority > new_priority){
+    thread_yield();
+  }
+
 }
 
 /* Returns the current thread's priority. */
@@ -590,10 +602,10 @@ schedule (void)
 {
   struct thread *cur = running_thread ();
   struct list_elem *e = list_begin(&ready_list);
-  struct thread *nextCandidate = list_entry (e, struct thread, elem);
-  if(cur == nextCandidate){
-    return;
-  }
+  // struct thread *nextCandidate = list_entry (e, struct thread, elem);
+  // if(cur == nextCandidate){
+  //   return;
+  // }
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
   #ifdef KOSAR;

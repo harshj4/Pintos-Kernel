@@ -104,7 +104,6 @@ timer_sleep (int64_t ticks)
   // TODO: Interrupt may be needed. Not sure.
   
   lock_acquire(&bl_lock);
-
   // IMP: Don't remove thread from ready list before putting it into another list. Because, internal implementations may be different.
   list_push_back(&blocked_list,&current->elem);
   list_sort(&blocked_list, &timer_priority_comparator, NULL);
