@@ -266,8 +266,13 @@ thread_unblock (struct thread *t)
   if(&t->elem != NULL && t->elem.next != NULL && t->elem.prev != NULL)
     list_remove(&t->elem);            // VEDHARIS 10/17/2019
   list_push_back (&ready_list, &t->elem);
+  list_sort(&ready_list, &priority_comparator, NULL);
   t->status = THREAD_READY;
-  intr_set_level (old_level);
+  schedule();
+  // if(intr_get_level() != old_level){
+      intr_set_level (old_level);
+  // }
+  
 }
 
 /* Returns the name of the running thread. */
@@ -584,6 +589,11 @@ static void
 schedule (void) 
 {
   struct thread *cur = running_thread ();
+  struct list_elem *e = list_begin(&ready_list);
+  struct thread *nextCandidate = list_entry (e, struct thread, elem);
+  if(cur == nextCandidate){
+    return;
+  }
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
   #ifdef KOSAR;
@@ -615,3 +625,14 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+  struct thread *at = list_entry (a, struct thread, elem);
+  struct thread *bt = list_entry (b, struct thread, elem);
+  if(at->priority > bt->priority){
+    return true;
+  }
+  else{
+    return false;
+  }
+}
