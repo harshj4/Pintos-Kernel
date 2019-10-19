@@ -507,6 +507,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->donated_priority = -1;
+  t->locks_held = 0;
   // t->sleep_wt = timer_ticks ();
   t->magic = THREAD_MAGIC;
   #ifdef VERBOSE
@@ -641,10 +642,17 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
   struct thread *at = list_entry (a, struct thread, elem);
   struct thread *bt = list_entry (b, struct thread, elem);
-  if(at->priority > bt->priority){
-    return true;
-  }
-  else{
-    return false;
-  }
+  int aa, bb;
+
+  aa = (at->priority > at->donated_priority)?at->priority:at->donated_priority;
+  bb = (bt->priority > bt->donated_priority)?bt->priority:bt->donated_priority;
+  
+  return aa > bb;
+
+  // if(at->priority > bt->priority){
+  //   return true;
+  // }
+  // else{
+  //   return false;
+  // }
 }

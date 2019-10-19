@@ -223,9 +223,31 @@ lock_acquire (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
-  called_by_lock = true;
-  sema_down (&lock->semaphore);
-  lock->holder = thread_current ();
+
+  struct thread *owner = lock->holder;
+  struct thread *cur = thread_current();
+  if(owner == NULL) { 
+    called_by_lock = true;
+    sema_down (&lock->semaphore);
+    lock->holder = cur;
+  }
+  else if(owner->priority > cur->priority) {
+    called_by_lock = true;
+    sema_down (&lock->semaphore);
+    lock->holder = cur;
+  }
+  else if(owner->priority < cur->priority) {
+    if(owner->donated_priority > cur->priority) { // donated already
+      called_by_lock = true;
+      sema_down (&lock->semaphore);
+      lock->holder = cur;
+    }
+    else { // need to donate
+      owner->donated_priority = cur->priority;
+      owner->locks_held++;
+      sema_down (&lock->semaphore);
+    }
+  }
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -258,6 +280,11 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
+
+  if(lock->holder->donated_priority != -1)
+    lock->holder->locks_held--;
+    if(lock->holder->locks_held == 0)
+      lock->holder->donated_priority = -1;
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
