@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "list.h"
+#include "fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -420,8 +421,15 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
+  int c;
+for (struct list_elem *e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e))
+     {
+       if(list_entry(e,struct thread,allelem)->status == THREAD_READY)
+       c++;
+     }  
   /* Not yet implemented. */
-  return 0;
+  // load_avg = FixedtoInt(DIV(59,60)*(InttoFixed(load_avg)) + DIV(1,60)*(InttoFixed(c)));
+  return load_avg*100;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
