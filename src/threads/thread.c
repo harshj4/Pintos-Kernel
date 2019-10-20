@@ -210,7 +210,8 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
   // first = list_entry(list_front(&ready_list), struct thread, elem);
-  if(priority > thread_current()->priority){
+  // if(priority > thread_current()->priority){
+  if(priority > *thread_current()->donated_priority){
   // if(t != first){
     thread_yield();
   }
@@ -370,13 +371,19 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  struct thread *cur = thread_current ();
+  cur->priority = new_priority;
+  if(cur->priority > *cur->donated_priority )
+    cur->donated_priority = &cur->priority;
+
+
+  // thread_current ()->priority = new_priority;
   lock_acquire(&rl_lock);
   list_sort(&ready_list,&priority_comparator,NULL);
   struct list_elem *e = list_begin(&ready_list);
   struct thread *head = list_entry (e, struct thread, elem);
   lock_release(&rl_lock);
-  if(head->priority > new_priority){
+  if(*head->donated_priority > new_priority){
     thread_yield();
   }
 
@@ -386,7 +393,12 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  struct thread *cur = thread_current ();
+  return *cur->donated_priority;
+
+  // return (cur->donated_priority == -1)?cur->priority:cur->donated_priority;
+
+  // return thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -506,7 +518,7 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
-  t->donated_priority = -1;
+  t->donated_priority = &t->priority;
   t->locks_held = 0;
   // t->sleep_wt = timer_ticks ();
   t->magic = THREAD_MAGIC;
@@ -644,8 +656,11 @@ bool priority_comparator(const struct list_elem *a, const struct list_elem *b, v
   struct thread *bt = list_entry (b, struct thread, elem);
   int aa, bb;
 
-  aa = (at->priority > at->donated_priority)?at->priority:at->donated_priority;
-  bb = (bt->priority > bt->donated_priority)?bt->priority:bt->donated_priority;
+  // aa = (at->priority > at->donated_priority)?at->priority:at->donated_priority;
+  // bb = (bt->priority > bt->donated_priority)?bt->priority:bt->donated_priority;
+  
+  aa = *at->donated_priority;
+  bb = *bt->donated_priority;
   
   return aa > bb;
 

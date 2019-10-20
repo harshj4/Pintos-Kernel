@@ -298,5 +298,6 @@ bool timer_priority_comparator(const struct list_elem *a, const struct list_elem
     return true;
   else if(at->sleep_wt == bt->sleep_wt)
     return at->priority > bt->priority;
+    // return *at->donated_priority > *bt->donated_priority;
   return false;
 }

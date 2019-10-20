@@ -72,8 +72,8 @@ sema_down (struct semaphore *sema)
       // if(cur->elem.next != NULL && cur->elem.prev != NULL)
         // list_remove(&cur->elem);
       // list_push_back (&sema->waiters, &thread_current ()->elem);
-      // list_push_front (&sema->waiters, &cur->elem);
-      list_push_back (&sema->waiters, &cur->elem);
+      list_push_front (&sema->waiters, &cur->elem);
+      // list_push_back (&sema->waiters, &cur->elem);
       // Added by VEDHARIS on 10/19
       list_sort(&sema->waiters, &priority_comparator, NULL);
       thread_block ();
@@ -226,28 +226,21 @@ lock_acquire (struct lock *lock)
 
   struct thread *owner = lock->holder;
   struct thread *cur = thread_current();
-  if(owner == NULL) { 
-    called_by_lock = true;
-    sema_down (&lock->semaphore);
-    lock->holder = cur;
-  }
-  else if(owner->priority > cur->priority) {
-    called_by_lock = true;
-    sema_down (&lock->semaphore);
-    lock->holder = cur;
-  }
-  else if(owner->priority < cur->priority) {
-    if(owner->donated_priority > cur->priority) { // donated already
-      called_by_lock = true;
-      sema_down (&lock->semaphore);
-      lock->holder = cur;
-    }
-    else { // need to donate
-      owner->donated_priority = cur->priority;
+  
+  if(owner != NULL) {
+    // if(owner->priority < cur->priority &&
+    //     owner->donated_priority < cur->priority) {
+    if(*owner->donated_priority < *cur->donated_priority) {
+      // owner->donated_priority = cur->priority;
+      owner->donated_priority = cur->donated_priority;
       owner->locks_held++;
-      sema_down (&lock->semaphore);
     }
   }
+  
+  called_by_lock = true;
+  sema_down (&lock->semaphore);
+  lock->holder = cur;
+
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -281,10 +274,11 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  if(lock->holder->donated_priority != -1)
+  if(lock->holder->locks_held > 0) {
     lock->holder->locks_held--;
     if(lock->holder->locks_held == 0)
-      lock->holder->donated_priority = -1;
+      lock->holder->donated_priority = &lock->holder->priority;
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);

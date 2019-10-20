@@ -89,8 +89,9 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    int donated_priority;
+    int * donated_priority;
     int locks_held;
+    // int * cur_pri;
     struct list_elem allelem;           /* List element for all threads list. */
 
     /* Shared between thread.c and synch.c. */
@@ -101,6 +102,8 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
+    int nice;
+    int recent_cpu;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -150,5 +153,7 @@ int thread_get_load_avg (void);
 bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 bool round_robin_flag;
+
+static int load_avg;
 
 #endif /* threads/thread.h */
