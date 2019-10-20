@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include <hash.h>
 #include <stdint.h>
 #include "devices/timer.h"
 
@@ -96,7 +97,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    struct list_elem bl_elem;           /* UNUSED. List element used in blocked_list.*/
+    // struct list_elem mlfqs_elem;           /* UNUSED. List element used in blocked_list.*/
     int64_t sleep_wt;                   /* Used to store wake up tick time of thread if sleeping */
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -115,6 +116,8 @@ struct thread
 extern bool thread_mlfqs;
 // Stores blocked threads 
 static struct list blocked_list;
+
+static struct list mlfqs_table[PRI_MAX+1];
 
 //Lock for ready_list.
 struct lock rl_lock;
@@ -150,6 +153,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
 bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
 
 bool round_robin_flag;

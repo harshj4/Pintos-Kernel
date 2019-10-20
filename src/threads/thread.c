@@ -374,18 +374,29 @@ thread_set_priority (int new_priority)
 {
   struct thread *cur = thread_current ();
   cur->priority = new_priority;
-  if(cur->priority > *cur->donated_priority )
-    cur->donated_priority = &cur->priority;
 
+  if(thread_mlfqs) {
+    // int old_priority = cur->priority;
 
-  // thread_current ()->priority = new_priority;
-  lock_acquire(&rl_lock);
-  list_sort(&ready_list,&priority_comparator,NULL);
-  struct list_elem *e = list_begin(&ready_list);
-  struct thread *head = list_entry (e, struct thread, elem);
-  lock_release(&rl_lock);
-  if(*head->donated_priority > new_priority){
-    thread_yield();
+    list_remove(cur);
+    list_push_back(&mlfqs_table[new_priority], &cur->elem); 
+
+  }
+  else {
+    // cur->priority = new_priority;
+    
+    if( cur->priority > *cur->donated_priority )
+      cur->donated_priority = &cur->priority;
+
+    // thread_current ()->priority = new_priority;
+    lock_acquire(&rl_lock);
+    list_sort(&ready_list,&priority_comparator,NULL);
+    struct list_elem *e = list_begin(&ready_list);
+    struct thread *head = list_entry (e, struct thread, elem);
+    lock_release(&rl_lock);
+    if(*head->donated_priority > new_priority){
+      thread_yield();
+    }
   }
 
 }
@@ -404,9 +415,10 @@ thread_get_priority (void)
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice) 
 {
   /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
@@ -414,19 +426,19 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  int c;
-for (struct list_elem *e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e))
-     {
-       if(list_entry(e,struct thread,allelem)->status == THREAD_READY)
-       c++;
-     }  
+  // int c;
+// for (struct list_elem *e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e))
+//      {
+//        if(list_entry(e,struct thread,allelem)->status == THREAD_READY)
+//        c++;
+//      }  
   /* Not yet implemented. */
   // load_avg = FixedtoInt(DIV(59,60)*(InttoFixed(load_avg)) + DIV(1,60)*(InttoFixed(c)));
   return load_avg*100;
@@ -437,7 +449,7 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current()->recent_cpu;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -659,7 +671,8 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+bool
+priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
   struct thread *at = list_entry (a, struct thread, elem);
   struct thread *bt = list_entry (b, struct thread, elem);
   int aa, bb;
@@ -678,4 +691,20 @@ bool priority_comparator(const struct list_elem *a, const struct list_elem *b, v
   // else{
   //   return false;
   // }
+}
+
+void 
+init_mlfqs(void) {
+  ASSERT(thread_mlfqs);
+
+  for(int i = PRI_MIN; i<=PRI_MAX; i++) {
+    list_init(&mlfqs_table[i]);
+  }
+}
+
+int
+list_get_max_pri(struct list mlfqs[]) {
+  for(int i=PRI_MAX; i>=PRI_MIN;i--)
+    if(!list_empty(&mlfqs[i]))
+      return i;
 }
