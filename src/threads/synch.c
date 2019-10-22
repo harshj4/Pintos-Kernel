@@ -49,7 +49,7 @@ sema_init (struct semaphore *sema, unsigned value)
   sema->value = value;
   list_init (&sema->waiters);
 }
-
+void copy(int ** a, int ** b) {*a = *b;}
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 
@@ -230,9 +230,9 @@ lock_acquire (struct lock *lock)
   if(owner != NULL) {
     // if(owner->priority < cur->priority &&
     //     owner->donated_priority < cur->priority) {
-    if(*owner->donated_priority < *cur->donated_priority) {
-      // owner->donated_priority = cur->priority;
-      owner->donated_priority = cur->donated_priority;
+    if(*(owner->donated_priority) < *(cur->donated_priority)) {
+      // owner->donated_priority = cur->donated_priority;
+      copy(&owner->donated_priority, &cur->donated_priority);
       owner->locks_held++;
     }
   }

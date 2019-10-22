@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include "list.h"
 #include "../threads/synch.h"
+#include <fixed-point.h>
 /* Number of timer interrupts per second. */
 #define TIMER_FREQ 100
 
@@ -30,4 +31,5 @@ void timer_print_stats (void);
 
 bool timer_priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
 
+static int c;
 #endif /* devices/timer.h */

@@ -6,6 +6,7 @@
 #include <hash.h>
 #include <stdint.h>
 #include "devices/timer.h"
+// #include <string.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -104,7 +105,7 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
     int nice;
-    int recent_cpu;
+    int32_t recent_cpu;
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
@@ -121,6 +122,7 @@ static struct list mlfqs_table[PRI_MAX+1];
 
 //Lock for ready_list.
 struct lock rl_lock;
+struct lock mlfqs_lock;
 //Lock for blocked_list.
 struct lock bl_lock;
 void thread_init (void);
@@ -155,9 +157,12 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 bool priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux);
+void init_mlfqs(void);
 
-bool round_robin_flag;
+static bool round_robin_flag;
+bool intr_flag;
 
-static int load_avg;
+static int32_t load_avg;
+static int ready_count;
 
 #endif /* threads/thread.h */

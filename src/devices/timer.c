@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "fixed-point.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -41,6 +42,15 @@ timer_init (void)
   list_init (&blocked_list);
   lock_init (&bl_lock);
   lock_init (&rl_lock);
+  lock_init (&mlfqs_lock);
+  c=0;
+  load_avg = 0;
+  ready_count = 0;
+
+  if(thread_mlfqs) {
+    init_mlfqs();
+  }
+
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -95,6 +105,8 @@ timer_sleep (int64_t ticks)
 { 
 //   // changes 17/10 by harshal
   ASSERT (intr_get_level () == INTR_ON);
+
+  ready_count--;
   
   struct thread *current = thread_current();
   
@@ -201,10 +213,8 @@ timer_interrupt (struct intr_frame *args UNUSED)
     while(e!=list_end(&blocked_list)) {
       prospect = list_entry (e, struct thread, elem);
       if(prospect->sleep_wt <= ticks) {
-        // printf("unblocking thread %u M: %u\n", &prospect->tid, &prospect->magic);
         e = list_next(e);
         thread_unblock(prospect);
-        // printf("Thread unblocked\n");
       }
       else { break; } 
     }
@@ -216,8 +226,10 @@ timer_interrupt (struct intr_frame *args UNUSED)
   //end_changes
   
   thread_tick ();
-  intr_yield_on_return();
 
+  intr_yield_on_return();
+  intr_flag = true;
+  // printf("\nintrflag true\n");
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer

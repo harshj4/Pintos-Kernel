@@ -1,4 +1,4 @@
-			+--------------------+
+    			+--------------------+
 			|       CSE 521      |
 			| PROJECT 1: THREADS |
 			|   DESIGN DOCUMENT  |
@@ -20,6 +20,9 @@ Harshal Ganesh Jagtap 	<harshalg@buffalo.edu>
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
+
+https://www.youtube.com/watch?v=npQF28g6s_k
+https://www.youtube.com/watch?v=S12qx1DwjVk
 
 			     ALARM CLOCK
 			     ===========
@@ -45,15 +48,33 @@ A new list created to hold the blocked threads thread.c
 
 	static struct list blocked_list;
 
----- ALGORITHMS ----
+Lock for ready_list created in thread.h
 
+    struct lock rl_lock;
+
+Lock for blocked_list created in thread.h
+
+    struct lock bl_lock;
+
+Comparator for comparing the wake-up time of the threads for sorting
+    blocked_list.
+
+    bool timer_priority_comparator(const struct list_elem *a,
+                                   const struct list_elem *b,
+                                   void *aux)
+
+---- ALGORITHMS ----
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
-By our current algorithm, thread_block() should be called which will put
-	the current process in the blocked queue. It shall set the variable 
-	sleep_wt to the expected tick stamp when the process should be woken
-	up. The blocked_list will always be in a sorted state.
+By our current algorithm, We first calculate the wait time for our current
+    thread, which will set the variable sleep_wt to the expected tick stamp
+    when the process should be woken up. Then we aquire lock for our blocked
+    queue and push the current process in the blocked queue. The blocked_list
+    will always be sorted by wake time. Then we release the lock for blocked
+    queue, and call the thread_block() method, which changes the current
+    status of our thread from THREAD_RUNNING to THREAD_BLOCKED and call the
+    schedule() method which reschedules our thread. 
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
@@ -68,15 +89,20 @@ Since, the blocked_list is in sorted state we need check the whether the
 >> timer_sleep() simultaneously?
 
 As per our current machanism, the process of putting a thread into the
-	blocked_list will be completed before thread_block() calls schedule().
-	Hence, there won't be any new process in the running state before
-	thread is put into blocked_list. That means that no two threads will
-	try to access blocked_list simultaneously. Hence, race conditions are 
+	blocked_list requires the blocked_list to aquire lock and will release
+	the lock after successful addition to the blocked_list before
+	thread_block() calls schedule().Hence, there won't be any new
+	process in the running state before thread is put into 
+	blocked_list. That means that no two threads will try to
+	access blocked_list simultaneously. Hence, race conditions are 
 	avoided.
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
 
+In timer_sleep(), we have used a lock, bl_lock, to lock editing of the
+	blocked_list. This lock prevents anyone trying to access the
+	blocked_list, even timer_interrupt
 
 ---- RATIONALE ----
 >> A6: Why did you choose this design?  In what ways is it superior to
@@ -88,10 +114,10 @@ To get rid of the busy waiting loop, we need to put the running thread
 	the thread doesn't get scheduled before its waiting time completion
 	by putting it into the blocked_list.
 
-We have attempted a simplistic approach towards this problem and have
-	tried to include the concept of buffering. As yet we have not been
-	able to complete the buffering section which will be required to
-	tackle all future synchonization problems.
+Using this design, we could easily understand the flow of the threads
+	and visualize them as if on a timeline. This implementation
+	is simple and concise, as compared to other possibilities 
+	like locking the threads using individual locks.
 
 			 PRIORITY SCHEDULING
 			 ===================
@@ -102,20 +128,26 @@ We have attempted a simplistic approach towards this problem and have
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-Adding a new variable to the thread struct to hold the timestamp at which
-	time the thread must be taken out of blocked_list.
+Adding a new variable,  donated_priority, to the thread struct to
+    hold the pointer to the priority variable which can be
+    re-assigned to transfer priority. Another variable, locks_held,
+    has been added to track how many threads have requested lock
+    held by the current thread.
 	
 	struct thread
 	{
 		...
-		int64_t sleep_wt;                   /* Wake time stamp for looping through blocked list. */
-		
+		int * donated_priority;
+        int locks_held;
 		...
 	};
 
-A new list created to hold the blocked threads thread.c
-
-	static struct list blocked_list;
+Comparator for comparing the priority of the threads for sorting
+    ready_list.
+    
+    bool priority_comparator(const struct list_elem *a,
+                             const struct list_elem *b,
+                             void *aux)
 
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
@@ -131,15 +163,25 @@ The ready_list is already sorted in a descending order according to priority.
 	equal priority are treated on an FCFS basis. Thus ready_list priority
 	requirement is satisfied. The blocked_list is sorted based on the time
 	stamp at which the thread is expected to be woken up in an ascending
-	order. Hence, all the necessary time stamps	can be woken up if required
+	order. Hence, all the necessary time stamps can be woken up if required
 	at any given tick. The sorting also ensures no thread is woken up before
 	their wait time is elapsed regardless of the priority.
 
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
+
+When lock_acquire is called on already acquired lock, we compare the
+    correct owner's priority with the current process. If less, we assign
+    the current thread's donated_priority pointer to the owner's donated
+    priority. We increment the current lock owner's attribute locks_held
+    to keep track of number of dependent locks.
  
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+When lock_release is called, we decrement attribute locks_held. If
+    locks_held becomes 0, we redirect donated_priority to point to our
+    current priority and release the lock.
 
 ---- SYNCHRONIZATION ----
 
@@ -147,10 +189,15 @@ The ready_list is already sorted in a descending order according to priority.
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+This was a simplistic design imitating alarm_clock where where the list
+    sorting would be done by a similar comparator. Such a implementation
+    can now be expanded to suit any other need.
 
 			  ADVANCED SCHEDULER
 			  ==================
@@ -161,18 +208,26 @@ The ready_list is already sorted in a descending order according to priority.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-A hash map shall be used to store multiple queues, each consisting of threads
-	with equal priorities. The total number of such queues would be 64
-	corresponding to 64 priority levels.
+An array of lists shall be used to store multiple queues, each consisting
+    of threads with equal priorities. The total number of such queues
+    would be 64	corresponding to 64 priority levels.
 	
-	static struct hash priority_bucket;
+	static struct list mlfqs_table;
 
-The current_list shall store the current list of threads to be executed in
-	a round robin manner. This list is updated in a loop and the first
-	non-empty queue from the hash map with the highest priority is assigned
-	to the currnet_list. All threads in this list are of equal priority.
+A global variable, load_avg, is used to store the average load calculated
+    by the formula given in slides.
+
+	static int32_t load_avg;
+
+The round_robin_flag is set everytime a time slice is completed to indicate
+    recalculation of priority of the current thread.
+
+	static bool round_robin_flag;
 	
-	static struct list current_list;
+This flag is set just before the timer interrupt calls thread_yield() to
+    indicate thread_yield() has to evaluate per-tick operations.
+
+	bool intr_flag;
 
 ---- ALGORITHMS ----
 
@@ -210,6 +265,13 @@ Considerations:
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
 
+To compensate for the difficulties of accessing variables inside and outside
+    interrupt context, we had to use flag and global variables. Owing to this,
+    programmer oversight and byzantine errors could cause untracable,
+    unreproducable runtime errors. Also, for any buildup over this project,
+    certain aspects of this code would need to be changed to meet new set of
+    requirements. 
+
 ---- RATIONALE ----
 
 >> C5: Briefly critique your design, pointing out advantages and
@@ -217,10 +279,11 @@ Considerations:
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
-The idea behind a hash-map is that we have a fixed no of priorities and hence
-	we require a fixed no of queues to hold the threads with their corresponding
-	priority. Hash maps in theory could help us in reducing fetching time for
-	these queues.
+The idea behind an array of lists is that we have a fixed number of priorities
+    and hence we require a fixed number of queues to hold the threads according
+    to their corresponding priority. Hash maps in theory could have helped us
+    in reducing fetching time for these queues, but we found the implementation
+    more complex than what was required for this task.
 
 >> C6: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
@@ -228,6 +291,14 @@ The idea behind a hash-map is that we have a fixed no of priorities and hence
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+We referred an online video resource to understand an implementation of fixed-
+    point math in practice. We attempted to adapt logic written for cpp to
+    native c which caused errors because of difficulty in understanding of
+    operator precedence. We used a combination of the online resource and the
+    lecture slides to create our own functions. We tried to use pre-compiler
+    commands for simplicity and clarity in coding.
+
 
 			   SURVEY QUESTIONS
 			   ================
@@ -241,12 +312,17 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+It was difficult to adapt to pointer based procedural programming language
+    especially managing pointer arithmatic and scope.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
+
+A crash course in pointers and assignment would be beneficial.
 
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
