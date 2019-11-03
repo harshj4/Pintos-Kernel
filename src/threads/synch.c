@@ -228,12 +228,8 @@ lock_acquire (struct lock *lock)
   struct thread *cur = thread_current();
   
   if(owner != NULL) {
-    // if(owner->priority < cur->priority &&
-    //     owner->donated_priority < cur->priority) {
-    if(*(owner->donated_priority) < *(cur->donated_priority)) {
-      // owner->donated_priority = cur->donated_priority;
-      copy(&owner->donated_priority, &cur->donated_priority);
-      owner->locks_held++;
+    if(iter_priority(&owner->priority) < iter_priority(&cur->priority)) {
+      add_donor(&owner->priority);
     }
   }
   
@@ -274,11 +270,12 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  if(lock->holder->locks_held > 0) {
-    lock->holder->locks_held--;
-    if(lock->holder->locks_held == 0)
-      lock->holder->donated_priority = &lock->holder->priority;
-  }
+  // if(lock->holder->locks_held > 0) {
+  //   lock->holder->locks_held--;
+  //   if(lock->holder->locks_held == 0)
+  //     lock->holder->donated_priority = &lock->holder->priority;
+  // }
+  // TODO: implement locks unlocking mechanism.
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);

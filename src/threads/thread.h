@@ -83,6 +83,11 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
+  
+  typedef struct priority_ll {
+  int priority;
+  struct priority_ll * next;
+} Priority;
 struct thread
   {
     /* Owned by thread.c. */
@@ -90,9 +95,10 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    int * donated_priority;
-    int locks_held;
+    Priority priority;                       /* Priority. */
+    // int priority;                       /* Priority. */
+    // int * donated_priority;
+    // int locks_held;
     // int * cur_pri;
     struct list_elem allelem;           /* List element for all threads list. */
 
@@ -164,5 +170,8 @@ bool intr_flag;
 
 static int32_t load_avg;
 static int ready_count;
+
+int iter_priority(Priority *);
+void add_donor(Priority *);
 
 #endif /* threads/thread.h */

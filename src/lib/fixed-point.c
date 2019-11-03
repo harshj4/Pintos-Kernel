@@ -1,5 +1,13 @@
 #include <fixed-point.h>
 
+Fixed Add(Fixed x, int n) {
+    return x + InttoFixed(n);
+}
+
+Fixed Subtract(Fixed x, int n) {
+    return x - InttoFixed(n);
+}
+
 Fixed Multiply(Fixed x,Fixed y) {
     return ((int64_t)(x) * y / Precision);
 }

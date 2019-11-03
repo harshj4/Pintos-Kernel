@@ -93,9 +93,8 @@ static tid_t allocate_tid (void);
 void
 thread_init (void) 
 {
-  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-  #endif
+
   lock_init (&tid_lock);
   list_init (&ready_list);
   // list_init (&blocked_list);
@@ -272,7 +271,7 @@ thread_create (const char *name, int priority,
       thread_yield();
       // }
   // else {
-    if(priority > *thread_current()->donated_priority){
+    if(priority > thread_current()->priority.priority){
       thread_yield();
     // }
   }
@@ -290,9 +289,7 @@ thread_block (void)
 {
   intr_disable();
   ASSERT (!intr_context ());
-  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-  #endif
   // thread_current ()->status = THREAD_BLOCKED;
   struct thread *blocked = thread_current();
   blocked->status = THREAD_BLOCKED;
@@ -325,7 +322,7 @@ thread_unblock (struct thread *t)
   if(thread_mlfqs){
     if(&t->elem != NULL && t->elem.next != NULL && t->elem.prev != NULL)
       list_remove(&t->elem);
-    list_push_back (&mlfqs_table[t->priority], &t->elem);
+    list_push_back (&mlfqs_table[t->priority.priority], &t->elem);
     ready_count++;
   }
   else{
@@ -412,21 +409,20 @@ thread_yield (void)
   if(thread_mlfqs) {
     if (cur != idle_thread){
       if(intr_flag) { 
-        // printf("\n\nyield main %ld\n", cur->recent_cpu);
-        //TODO: here all priority upgrade takes place.
+
         intr_flag = false;
         if(round_robin_flag){
           round_robin_flag = false;
           cur->recent_cpu += InttoFixed(1);
-          int old_pri = cur->priority;
+          int old_pri = cur->priority.priority;
           // cur->priority = FixedtoInt(InttoFixed(PRI_MAX) - (cur->recent_cpu / 4) - InttoFixed(cur->nice * 2));
           //G2
-          cur->priority = PRI_MAX - FixedtoInt( thread_current()->recent_cpu / 4)- (cur->nice * 2);
+          cur->priority.priority = PRI_MAX - FixedtoInt( thread_current()->recent_cpu / 4)- (cur->nice * 2);
           // cur->priority=(cur->priority<0)?0:cur->priority;
-          if(cur->priority<0) cur->priority=0;
+          // if(cur->priority.priority<0) cur->priority.priority=0;
           // printf("yield RR rcpu %ld:: pri %d\n", cur->recent_cpu, cur->priority);
-          if(cur->priority != old_pri){
-            list_push_back(&mlfqs_table[cur->priority], &cur->elem);
+          if(cur->priority.priority != old_pri){
+            list_push_back(&mlfqs_table[cur->priority.priority], &cur->elem);
           }
         }
         else{
@@ -437,7 +433,7 @@ thread_yield (void)
         }
       }
       else {
-        list_push_back(&mlfqs_table[cur->priority], &cur->elem);
+        list_push_back(&mlfqs_table[cur->priority.priority], &cur->elem);
       }
     }
     // else {
@@ -466,9 +462,7 @@ void
 thread_foreach (thread_action_func *func, void *aux)
 {
   struct list_elem *e;
-  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-  #endif
   for (e = list_begin (&all_list); e != list_end (&all_list);
        e = list_next (e))
     {
@@ -485,11 +479,11 @@ thread_set_priority (int new_priority)
   // cur->priority = new_priority;
 
   if(thread_mlfqs) {
-    int old_priority = cur->priority;
+    int old_priority = cur->priority.priority;
     if(old_priority == new_priority)
       return;
 
-    cur->priority = new_priority;
+    cur->priority.priority = new_priority;
     
     if(old_priority < new_priority) {
       // TODO: check for new scheduled list and set that as the list.
@@ -504,11 +498,12 @@ thread_set_priority (int new_priority)
     // printf("act PRIORITY: %d\n", cur->priority);
     // printf("donated PRIORITY: %d\n", *cur->donated_priority);
     // printf("new PRIORITY: %d\n", new_priority);
-    cur->priority = new_priority;
+
+    cur->priority.priority = new_priority;
     
-    if( new_priority > *cur->donated_priority ){
+    if( new_priority > iter_priority(&cur->priority) ){
       // printf("pri change\n");
-      cur->donated_priority = &cur->priority;
+      cur->priority.next = NULL;
     }
 
     // thread_current ()->priority = new_priority;
@@ -518,7 +513,8 @@ thread_set_priority (int new_priority)
     struct thread *head = list_entry (e, struct thread, elem);
     lock_release(&rl_lock);
     if(head != list_tail(&ready_list))
-      if(*head->donated_priority > *cur->donated_priority)
+      // if(*head->donated_priority > *cur->donated_priority)
+      if(iter_priority(&head->priority) > iter_priority(&cur->priority))
         thread_yield();
     
     // printf("set donated %d and act PRIORITY: %d\n", *cur->donated_priority, cur->priority);
@@ -530,18 +526,8 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void) 
 {
-  // struct thread *cur = thread_current ();
-  // printf("G_ act PRIORITY: %d\n", cur->priority);
-  // printf("G_ donated PRIORITY: %d\n", *cur->donated_priority);
-  // printf("G_ donated PRIORITY: %d\n", cur->donated_priority);
-  // printf("GET PRIORITY %s: %d\n", cur->name, *cur->donated_priority);
-  // return *cur->donated_priority;
-  return *thread_current ()->donated_priority;
+  return iter_priority(&thread_current()->priority);
 
-
-  // return (cur->donated_priority == -1)?cur->priority:cur->donated_priority;
-
-  // return thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -555,7 +541,7 @@ thread_set_nice (int nice)
   int new_priority = PRI_MAX - FixedtoInt( thread_current()->recent_cpu / 4) - (thread_current()->nice * 2);
   struct thread * cur = thread_current();
 
-  if(new_priority!=cur->priority)
+  if(new_priority!=iter_priority(&cur->priority))
     thread_yield();
 
 }
@@ -669,15 +655,18 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
-  t->priority = priority;
-  t->donated_priority = &t->priority;
-  t->locks_held = 0;
+
+  Priority p;
+  p.next = NULL;
+  p.priority = priority;
+  t->priority = p;
+
   t->recent_cpu = 0;
-  if(memcmp(name, "main", 4) == 0)
+  // if(memcmp(name, "main", 4) == 0)
     // printf("main\n\n");
   // else printf("worker\n\n");
     t->recent_cpu = 0;
-  else t->recent_cpu = thread_current()->recent_cpu;
+  // else t->recent_cpu = thread_current()->recent_cpu;
   // t->recent_cpu = thread_current()->recent_cpu;
 
   // t->sleep_wt = timer_ticks ();
@@ -686,9 +675,7 @@ init_thread (struct thread *t, const char *name, int priority)
     printf("MAGIC NUM INIT: %u\n", t->magic);
   #endif
   old_level = intr_disable ();
-  // printf("\npre all list\n");
   list_push_back (&all_list, &t->allelem);
-  // printf("\nPOST all list\n");
   intr_set_level (old_level);
 }
 
@@ -749,9 +736,7 @@ void
 thread_schedule_tail (struct thread *prev)
 {
   struct thread *cur = running_thread ();
-  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-  #endif
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
@@ -790,9 +775,7 @@ schedule (void)
 
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
-  #ifdef KOSAR;
   ASSERT (intr_get_level () == INTR_OFF);
-  #endif
   ASSERT (cur->status != THREAD_RUNNING);
   ASSERT (is_thread (next));
 
@@ -822,24 +805,16 @@ uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 bool
 priority_comparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+  
   struct thread *at = list_entry (a, struct thread, elem);
   struct thread *bt = list_entry (b, struct thread, elem);
   int aa, bb;
 
-  // aa = (at->priority > at->donated_priority)?at->priority:at->donated_priority;
-  // bb = (bt->priority > bt->donated_priority)?bt->priority:bt->donated_priority;
-  
-  aa = *at->donated_priority;
-  bb = *bt->donated_priority;
+  aa = iter_priority(&at->priority);
+  bb = iter_priority(&bt->priority);
   
   return aa > bb;
 
-  // if(at->priority > bt->priority){
-  //   return true;
-  // }
-  // else{
-  //   return false;
-  // }
 }
 
 void 
@@ -859,4 +834,19 @@ list_get_max_pri() {
       return i;
   
   return -1;
+}
+
+int
+iter_priority(Priority * p) {
+  ASSERT(p != NULL);
+  
+  while(p->next != NULL)
+    p = p->next;
+  
+  return p->priority;
+}
+
+void
+add_donor(Priority * owner) {
+  // return 0;
 }
