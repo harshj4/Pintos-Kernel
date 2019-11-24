@@ -4,3 +4,4 @@ pintos_ved.sh
 .vscode
 .idea
 *.tar.gz
+*.o
