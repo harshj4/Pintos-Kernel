@@ -1,3 +1,6 @@
 # Shell file added for only Ved. You can ignore some files
 #   by uniquely naming them and adding that name here.
 pintos_ved.sh
+.vscode
+.idea
+*.tar.gz
