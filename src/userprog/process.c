@@ -39,20 +39,19 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  
   char *token, *save_ptr;
-
-  // for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-  // token = strtok_r (NULL, " ", &save_ptr)){
-  //     printf ("Token is: '%s'\n", token);
-      
-  // }
-  file_name = strtok_r (file_name, " ", &save_ptr);
+  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+  token = strtok_r (NULL, " ", &save_ptr)){
+      printf ("Token is: '%s'\n", token);   
+  }
+  // file_name = strtok_r (file_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  // printf("file name is %s \n",file_name);
+  printf("file name is %s \n",fn_copy);
   printf("this is after thread create\n");
   return tid;
 }
@@ -237,6 +236,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  /* Total length of the input cmd string*/
+  int input_length = strlen(file_name);
+
+  /* Small change for allowing loading of the file using file_name*/
+  char * save_ptr, * prog_name;
+  prog_name = strtok_r (file_name, " ", &save_ptr);
+
+  printf("Filename with length %d received as %s::%s\n", input_length, file_name, save_ptr);
+
   /* Open executable file. */
   file = filesys_open (file_name);
   if (file == NULL) 
@@ -325,26 +333,93 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
-  int* pMemory =  PHYS_BASE;
-  *pMemory = file_name;
+
+  /*-------------------------------------------------------------------------------------------------------------
+            Populating stack with all arguments and addresses
+  ---------------------------------------------------------------------------------------------------------------*/
+  /* Pointer to the start of actual data segment in memory */
+  char * pMemory =  PHYS_BASE - input_length - 1;
+  strlcpy(pMemory, file_name, input_length);
+
+  printf("value put at location %p is '%s' %d\n", (void *) pMemory, pMemory, strlen(file_name));
+
+  int argc = 1;
+
+  if(strlen(save_ptr)>0) {
+    pMemory += strlen(file_name)+1;
+    strlcpy(pMemory, save_ptr, input_length);
+    printf("value put at second location %p is '%s' \n", (void *) pMemory, pMemory);
+
+    for(;pMemory<PHYS_BASE;pMemory++)
+      // if(*pMemory == " ") {
+      if(*pMemory == ' ' || pMemory == PHYS_BASE - 1) {
+        *pMemory = '\0';
+        argc++;
+      }
+    // argc++;
+  } // ARGC calculated
+  // printf("Final ARGC: %d\n\n", argc);
+
+  pMemory =  PHYS_BASE - input_length - 6;
+
+  *(pMemory+4) = '\0';  // Padding zero
+  /*4 Sentinel zeros*/
+  *pMemory = '\0';      
+  *(pMemory+1) = '\0';
+  *(pMemory+2) = '\0';
+  *(pMemory+3) = '\0';
+
+  // Data has been filled upto the sentinel separator. Now addresses of the argv[*] are to be filled.
+
+  char * final_ =  PHYS_BASE - input_length - 6 - 4*argc - 12;    // This is potential *esp
+  pMemory = final_;
+
+  *(pMemory+4) = argc;            // ARGC set
   
-  // pMemory = PHYS_BASE - 4;
-  // *pMemory = NULL;
+  // ARGV set
+  *(pMemory+8) = pMemory+12;      
+  *(pMemory+9) = ((int)(pMemory+12) & 0x0000ff00UL) >> 8;
+  *(pMemory+10) = ((int)(pMemory+12) & 0x00ff0000UL) >> 16;
+  *(pMemory+11) = ((int)(pMemory+12) & 0xff000000UL) >> 24;
 
-  // pMemory = PHYS_BASE - 8;
-  // *pMemory = PHYS_BASE;
-  // pMemory = PHYS_BASE - 12;
-  // *pMemory = PHYS_BASE - 8;
-  // pMemory = PHYS_BASE - 16;
-  // *pMemory = 1;
-  // pMemory = PHYS_BASE - 20;
-  // *pMemory = 0;
+  // Set to first argument i.e. program name.
+  *(pMemory+12) = PHYS_BASE - input_length - 1;     
+  *(pMemory+13) = ((int)(PHYS_BASE - input_length - 1) & 0x0000ff00UL) >> 8;
+  *(pMemory+14) = ((int)(PHYS_BASE - input_length - 1) & 0x00ff0000UL) >> 16;
+  *(pMemory+15) = ((int)(PHYS_BASE - input_length - 1) & 0xff000000UL) >> 24;
 
-  printf("value put is %d \n", *pMemory);
+  // Problem area
+  if(argc > 1) {
+    int offset = 4;
+    for(char * ii = PHYS_BASE - input_length - 1; ii<PHYS_BASE-1; ii++) {
+      if(*ii == 0){
+        printf("%x %x : %x %x %x %x\n", pMemory+12+offset, ii+1, ((int)(ii + 1) & 0x000000ffUL), \
+        ((int)(ii + 1) & 0x0000ff00UL) >> 8, ((int)(ii + 1) & 0x00ff0000UL) >> 16, ((int)(ii + 1) & 0xff000000UL) >> 24);
 
+        *(pMemory+12+offset) = ii + 1;
+        *(pMemory+12+offset+1) = ((int)(ii + 1) & 0x0000ff00UL) >> 8;
+        *(pMemory+12+offset+2) = ((int)(ii + 1) & 0x00ff0000UL) >> 16;
+        *(pMemory+12+offset+3) = ((int)(ii + 1) & 0xff000000UL) >> 24;
+        offset += 4;
+      }
+    } 
+  }
+
+  // printf("Final esp pointer: %p, ARGC: %d\n\n", (void *) final_, *(pMemory+4));
+  // TODO:verify when to populate *esp, before or after setup_stack (esp)
+
+  for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
+  //   printf("%c, %c, %c, %c\n", *(ii-3), *(ii-2), *(ii-1), *ii);
+  // printf("you!:::%s\n\n", ((char *)(PHYS_BASE-5)));
+
+  /*-------------------------------------------------------------------------------------------------------------
+            Done polulating
+  ---------------------------------------------------------------------------------------------------------------*/
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  printf("File closed\n");
+  *esp = final_;
   return success;
 }
 
@@ -469,8 +544,8 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        // *esp = PHYS_BASE;
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
+        // *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }
