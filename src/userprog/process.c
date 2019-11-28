@@ -17,6 +17,8 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "syscall.h"
+#include <stdio.h>
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -37,11 +39,21 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  char *token, *save_ptr;
+
+  // for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+  // token = strtok_r (NULL, " ", &save_ptr)){
+  //     printf ("Token is: '%s'\n", token);
+      
+  // }
+  file_name = strtok_r (file_name, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  // printf("file name is %s \n",file_name);
+  printf("this is after thread create\n");
   return tid;
 }
 
@@ -88,8 +100,8 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(true){
-    
+  while(1){
+
   }
   return -1;
 }
@@ -117,6 +129,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+    printf ("%s: exit(0)\n", cur->name);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -312,6 +325,22 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  int* pMemory =  PHYS_BASE;
+  *pMemory = file_name;
+  
+  // pMemory = PHYS_BASE - 4;
+  // *pMemory = NULL;
+
+  // pMemory = PHYS_BASE - 8;
+  // *pMemory = PHYS_BASE;
+  // pMemory = PHYS_BASE - 12;
+  // *pMemory = PHYS_BASE - 8;
+  // pMemory = PHYS_BASE - 16;
+  // *pMemory = 1;
+  // pMemory = PHYS_BASE - 20;
+  // *pMemory = 0;
+
+  printf("value put is %d \n", *pMemory);
 
  done:
   /* We arrive here whether the load is successful or not. */
