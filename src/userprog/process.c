@@ -388,7 +388,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *(pMemory+14) = ((int)(PHYS_BASE - input_length - 1) & 0x00ff0000UL) >> 16;
   *(pMemory+15) = ((int)(PHYS_BASE - input_length - 1) & 0xff000000UL) >> 24;
 
-  // Problem area
+  // Populating addresses of argv
   if(argc > 1) {
     int offset = 4;
     for(char * ii = PHYS_BASE - input_length - 1; ii<PHYS_BASE-1; ii++) {
@@ -408,9 +408,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // printf("Final esp pointer: %p, ARGC: %d\n\n", (void *) final_, *(pMemory+4));
   // TODO:verify when to populate *esp, before or after setup_stack (esp)
 
-  for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
+  // for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
   //   printf("%c, %c, %c, %c\n", *(ii-3), *(ii-2), *(ii-1), *ii);
-  // printf("you!:::%s\n\n", ((char *)(PHYS_BASE-5)));
+  printf("Final esp :: %x\n\n", final_);
 
   /*-------------------------------------------------------------------------------------------------------------
             Done polulating
