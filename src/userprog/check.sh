@@ -1,72 +1,72 @@
 #!/bin/bash
 
 fl1=(
-    args-dbl-space.result
-    args-many.result
-    args-multiple.result
     args-none.result
     args-single.result
-    bad-jump2.result
-    bad-jump.result
-    bad-read2.result
-    bad-read.result
-    bad-write2.result
-    bad-write.result
-    close-bad-fd.result
-    close-normal.result
-    close-stdin.result
-    close-stdout.result
-    close-twice.result
-    create-bad-ptr.result
-    create-bound.result
-    create-empty.result
-    create-exists.result
-    create-long.result
-    create-normal.result
-    create-null.result
-    exec-arg.result
-    exec-bad-ptr.result
-    exec-bound-2.result
-    exec-bound-3.result
-    exec-bound.result
-    exec-missing.result
-    exec-multiple.result
-    exec-once.result
-    exit.result
-    halt.result
-    multi-child-fd.result
-    multi-recurse.result
-    open-bad-ptr.result
-    open-boundary.result
-    open-empty.result
-    open-missing.result
-    open-normal.result
-    open-null.result
-    open-twice.result
-    read-bad-fd.result
-    read-bad-ptr.result
-    read-boundary.result
-    read-normal.result
-    read-stdout.result
-    read-zero.result
-    rox-child.result
-    rox-multichild.result
-    rox-simple.result
-    sc-bad-arg.result
+    args-multiple.result
+    args-many.result
+    args-dbl-space.result
     sc-bad-sp.result
+    sc-bad-arg.result
+    sc-boundary.result
     sc-boundary-2.result
     sc-boundary-3.result
-    sc-boundary.result
-    wait-bad-pid.result
-    wait-killed.result
-    wait-simple.result
-    wait-twice.result
-    write-bad-fd.result
+    halt.result
+    exit.result
+    create-normal.result
+    create-empty.result
+    create-null.result
+    create-bad-ptr.result
+    create-long.result
+    create-exists.result
+    create-bound.result
+    open-normal.result
+    open-missing.result
+    open-boundary.result
+    open-empty.result
+    open-null.result
+    open-bad-ptr.result
+    open-twice.result
+    close-normal.result
+    close-twice.result
+    close-stdin.result
+    close-stdout.result
+    close-bad-fd.result
+    read-normal.result
+    read-bad-ptr.result
+    read-boundary.result
+    read-zero.result
+    read-stdout.result
+    read-bad-fd.result
+    write-normal.result
     write-bad-ptr.result
     write-boundary.result
-    write-normal.result
-    write-stdin.result
     write-zero.result
+    write-stdin.result
+    write-bad-fd.result
+    exec-once.result
+    exec-arg.result
+    exec-bound.result
+    exec-bound-2.result
+    exec-bound-3.result
+    exec-multiple.result
+    exec-missing.result
+    exec-bad-ptr.result
+    wait-simple.result
+    wait-twice.result
+    wait-killed.result
+    wait-bad-pid.result
+    multi-recurse.result
+    multi-child-fd.result
+    rox-simple.result
+    rox-child.result
+    rox-multichild.result
+    bad-read.result
+    bad-write.result
+    bad-read2.result
+    bad-write2.result
+    bad-jump.result
+    bad-jump2.result
     # no-vm/multi-oom.result
 )
 
@@ -135,6 +135,7 @@ done
 #     fi
 # else
 #     echo -e "\033[0;44m PENDING\033[0m"
+#     pend=$((pend + 1))
 # fi
 
 # echo
@@ -158,6 +159,7 @@ done
 #         fi
 #     else
 #         echo -e "\033[0;44m PENDING\033[0m"
+#         pend=$((pend + 1))
 #     fi
 # done
 

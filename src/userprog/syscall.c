@@ -3,6 +3,9 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "pagedir.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -16,70 +19,188 @@ static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
   void * esp = f->esp;
-  // printf ("system call!\n");
   // printf ("%x %x\n", esp, (void (*) (void)) esp);
+  // printf ("%p %p %p\n", esp, (esp+4), (esp+8));
   // printf ("%x : %x %x\n", esp, ((char *)f->esp), *((char *)f->esp));
+  struct thread * cur = thread_current();
+  char ** filename;
+
+  if(!is_user_vaddr (esp) || esp >= 0xbffffffc || esp < 0x08048000) {
+    cur->exit_status = -1; thread_exit();
+  }
+
+  void * page = pagedir_get_page(cur->pagedir, f->esp);
+
+  if(page == NULL) {
+    cur->exit_status = -1; thread_exit();
+  }
+
+  // if(esp >= 0xbffffffc || esp < 0x08048000 || page == NULL) {
+  //   thread_current()->exit_status = -1; thread_exit();  
+  // }
 
   switch (*((char *)f->esp))
   {
+  /*----------------------------------------------------------*/
+  /*                          HALT                            */
+  /*----------------------------------------------------------*/
   case SYS_HALT: // args: 0
-    printf("SYS_HALT\n");
+    // TODO: Need to implement halting properly
+    // printf("SYS_HALT\n");
     break;
-  case SYS_EXIT: // args: 1
-    // printf("SYS_EXIT\n");
+  
+  /*----------------------------------------------------------*/
+  /*                          Exit                            */
+  /*----------------------------------------------------------*/
+  case SYS_EXIT: ; // args: 1
+    // int8_t status = (esp + 4) >= 0xbffffffc ? -1 : *((int8_t *)(esp + 4));
+    // thread_current()->exit_status = status;
+    cur->exit_status = *((int8_t *) pagedir_get_page(cur->pagedir, esp+4));
     thread_exit();
+    // printf("\n\nSYS_EXIT: %d\n\n", thread_current()->exit_status);
     break;
-  case SYS_EXEC: // args: 1
-    printf("SYS_EXEC\n");
+  
+  /*----------------------------------------------------------*/
+  /*                          Exec                            */
+  /*----------------------------------------------------------*/
+  case SYS_EXEC: ;// args: 1
+    // printf("SYS_EXEC\n");
+    // const char **file = (esp + 4) >= 0xbffffffc ? NULL : esp + 4;
+    const char **file = *((const char *) pagedir_get_page(cur->pagedir, esp+4));
+    if (file == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Wait                            */
+  /*----------------------------------------------------------*/
   case SYS_WAIT: // args: 1
     printf("SYS_WAIT\n");
     break;
-  case SYS_CREATE: // args: 2
-    printf("SYS_CREATE\n");
+  
+  /*----------------------------------------------------------*/
+  /*                         Create                           */
+  /*----------------------------------------------------------*/
+  case SYS_CREATE: ;// args: 2
+    // printf("SYS_CREATE\n");
+    
+    // char ** new_file = pagedir_get_page(cur->pagedir, esp+4);      // arg0
+    filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
+    unsigned * init_size = pagedir_get_page(cur->pagedir, esp+8);     // arg1
+    if (*filename == NULL || init_size == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    f->eax = (uint32_t) filesys_create(*filename, *init_size);
+
     break;
-  case SYS_REMOVE: // args: 1
-    printf("SYS_REMOVE\n");
+  
+  /*----------------------------------------------------------*/
+  /*                         Remove                           */
+  /*----------------------------------------------------------*/
+  case SYS_REMOVE: ;// args: 1
+    // printf("SYS_REMOVE\n");
+    // char ** old_file = pagedir_get_page(cur->pagedir, esp+4);      // arg0
+    filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
+    if (*filename == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    f->eax = (uint32_t) filesys_remove(*filename);
+
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Open                            */
+  /*----------------------------------------------------------*/
   case SYS_OPEN: // args: 1
-    printf("SYS_OPEN\n");
+    // printf("SYS_OPEN\n");
+    filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
+    if (*filename == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+
+    for(int i = 2; i<10; i++) {
+      if(cur->fdt[i] == NULL) {
+        cur->fdt[i] = filesys_open(*filename);
+        if (cur->fdt[i] == NULL) {
+          // cur->exit_status = -1;
+          // thread_exit();
+          f->eax = -1;
+          break;              // not reachable
+        }
+        else {
+          f->eax = i;
+          break;
+        }
+      }
+    }
+    
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                        Filesize                          */
+  /*----------------------------------------------------------*/
   case SYS_FILESIZE: // args: 1
     printf("SYS_FILESIZE\n");
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Read                            */
+  /*----------------------------------------------------------*/
   case SYS_READ: // args: 3
     printf("SYS_READ\n");
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Write                           */
+  /*----------------------------------------------------------*/
   case SYS_WRITE:; // args: 3
-    // printf("SYS_WRITE\n");
-    // printf("ESP is %x\n", esp);
-    int32_t * arg0 = esp + 4;
-    char ** arg1 = esp + 8;
-    int32_t * arg2 = esp + 12;
-    // printf("SYS_WRITE:%x\n", *arg0);
-    // printf("size:%d || %x\n", *arg2, *arg2);
-    printf("%s", (char *)(*arg1));
-    // printf("BUFFER:");
-    // for(int i=0;i<*arg2;i++)
-    //   printf("%c %x\n", arg1[i], arg1[i]);
-    // printf("\nEND\n");
-      
+
+    int32_t * fd = pagedir_get_page(cur->pagedir, esp+4);     // arg0
+    char ** buffer = pagedir_get_page(cur->pagedir, esp+8);   // arg1
+    int32_t * size = pagedir_get_page(cur->pagedir, esp+12);  // arg2
+    
+    // int32_t * fd = esp + 4;     // arg1
+    // char ** buffer = esp + 8;   // arg1
+    // int32_t * size = esp + 12;  // arg2
+
+    printf("%s", (char *)(*buffer));
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Seek                            */
+  /*----------------------------------------------------------*/
   case SYS_SEEK: // args: 2
     printf("SYS_SEEK\n");
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Tell                            */
+  /*----------------------------------------------------------*/
   case SYS_TELL: // args: 1
     printf("SYS_TELL\n");
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                          Close                           */
+  /*----------------------------------------------------------*/
   case SYS_CLOSE: // args: 1
-    printf("SYS_CLOSE\n");
+    // printf("SYS_CLOSE\n");
     break;
+  
+  /*----------------------------------------------------------*/
+  /*                  Default / Bad SYSCALL                   */
+  /*----------------------------------------------------------*/
   default:
-    printf("Unknown condition: %d", *((char *)f->esp));
+    // printf("Unknown condition: %d", *((char *)f->esp));
+    cur->exit_status = -1; thread_exit();
     break;
   }
 
-  // thread_exit ();
 
 }
 

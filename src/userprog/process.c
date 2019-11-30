@@ -105,32 +105,28 @@ start_process (void *file_name_)
 int process_wait(tid_t child_tid UNUSED) {
 
   // printf("current thread is %s\n", thread_current()->name);
-  // struct thread *prospect, *child;
-  // struct list_elem *e = list_begin(&all_list);
-  // while (e != list_end(&all_list)) {
-  //   prospect = list_entry(e, struct thread, allelem);
-  //   if (prospect->tid == child_tid)
-  //   {
-  //     child = prospect;
-  //     break;
-  //   }
-  //   e = list_next(e);
-  // }
-  // printf("after while\n");
-  // if (child != NULL) {
-  //   while (child->status != THREAD_DYING)
-  //   {
-  //     thread_yield();
-  //     printf("hi\n");
-  //   }
-  // }
 
   // while(1){
     // printf("\n\nTimer sleep start\n\n");
-    timer_msleep(2000);
+    // timer_msleep(2000);
     // printf("\n\nTimer sleep complete\n\n");
     // struct thread *prospect, *child;
     // struct list_elem *e = list_begin(&all_list);
+  // }
+
+  timer_msleep(200);
+  // struct thread *prospect, *child;
+  // for (struct list_elem *e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e))
+  // {
+  //   prospect = list_entry (e, struct thread, elem);
+  //   if(prospect->tid == child_tid)
+  //     child = prospect;
+  // }
+
+  // while(1) {
+  //   if(child->status == THREAD_DYING) {
+  //     return child->exit_status;
+  //   }
   // }
 
   return 0;
@@ -158,7 +154,7 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-    printf ("%s: exit(0)\n", cur->name);
+    printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -271,15 +267,6 @@ load (char *file_name, void (**eip) (void), void **esp)
   /* Small change for allowing loading of the file using file_name*/
   char * save_ptr, * prog_name, *s_ptr, *c_ptr;
   c_ptr = file_name; s_ptr = file_name;
-  // printf("PRE-trimmed string: '%s'\n", s_ptr);
-  // while(*(s_ptr-1) != '\0') {
-  //   if(*s_ptr == ' ' && *(s_ptr+1) == ' ')
-  //     s_ptr++;
-  //   else {
-  //     *c_ptr = *s_ptr;
-  //     c_ptr++; s_ptr++;
-  //   }
-  // }
   while(*s_ptr !='\0') {
     if(*s_ptr == ' ' && *(s_ptr+1) == ' ')
       for(c_ptr=s_ptr; *c_ptr; c_ptr++) *c_ptr = *(c_ptr+1);
@@ -456,13 +443,6 @@ load (char *file_name, void (**eip) (void), void **esp)
     } 
   }
 
-  // printf("Final esp pointer: %p, ARGC: %d\n\n", (void *) final_, *(pMemory+4));
-  // TODO:verify when to populate *esp, before or after setup_stack (esp)
-
-  // for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
-  //   printf("%c, %c, %c, %c\n", *(ii-3), *(ii-2), *(ii-1), *ii);
-  // printf("Final esp :: %x\n\n", final_);
-  // printf("done populating\n");
   /*-------------------------------------------------------------------------------------------------------------
             Done polulating
   ---------------------------------------------------------------------------------------------------------------*/

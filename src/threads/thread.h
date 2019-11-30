@@ -6,6 +6,10 @@
 #include <hash.h>
 #include <stdint.h>
 
+#ifdef USERPROG   // Includes for project 2
+#include "filesys/file.h"
+#endif
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -95,12 +99,17 @@ struct thread
     struct list_elem elem;              /* List element. */
     // int64_t sleep_ts;
     // int64_t sleep_dur;
-    /* TODO */
+    /* TODO: Might have done this but don't know what now. */
     int64_t sleep_wt;                   /* Wake time stamp for looping through blocked list. */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    
+    // Extra variables used.
+
+    int8_t exit_status;                /* Exit status to print. */
+    struct file * fdt[10];
 #endif
 
     /* Owned by thread.c. */
