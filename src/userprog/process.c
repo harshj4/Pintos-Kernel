@@ -17,12 +17,13 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #include "syscall.h"
 #include <stdio.h>
 #include <list.h>
 
 static thread_func start_process NO_RETURN;
-static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static bool load (char *cmdline, void (**eip) (void), void **esp);
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -31,28 +32,31 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
+  char *file_copy;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
+  file_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-  
+  strlcpy(file_copy,file_name,PGSIZE);
   char *token, *save_ptr;
-  for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-  token = strtok_r (NULL, " ", &save_ptr)){
-      printf ("Token is: '%s'\n", token);   
-  }
-  // file_name = strtok_r (file_name, " ", &save_ptr);
+  // for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
+  // token = strtok_r (NULL, " ", &save_ptr)){
+  //     printf ("Token is: '%s'\n", token);   
+  // }
+  
+  char* tname = strtok_r (file_copy, " ", &save_ptr);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (tname, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  printf("file name is %s \n",fn_copy);
-  printf("this is after thread create\n");
+  // printf("file name is %s \n",fn_copy);
+  // printf("this is after thread create\n");
   return tid;
 }
 
@@ -74,8 +78,10 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success) {
+    printf("load failed");
     thread_exit ();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -96,29 +102,38 @@ start_process (void *file_name_)
 
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
-int
-process_wait (tid_t child_tid UNUSED) 
-{
-  printf("current thread is %s\n",thread_current()->name);
-  struct thread *prospect, *child;
-  struct list_elem *e = list_begin(&all_list);
-  while(e!=list_end(&all_list)) {
-    prospect = list_entry (e, struct thread, elem);
-    if(prospect->tid == child_tid) {
-      child = prospect;
-      break;
-      }
-    e = list_next(e);
-  }
-  printf("after while\n");
-  if(child!=NULL){
-      while(prospect->status!= THREAD_DYING){  
-        // thread_yield();
-      printf("hi\n");
-  }
-  }
-  
-return -1;
+int process_wait(tid_t child_tid UNUSED) {
+
+  // printf("current thread is %s\n", thread_current()->name);
+  // struct thread *prospect, *child;
+  // struct list_elem *e = list_begin(&all_list);
+  // while (e != list_end(&all_list)) {
+  //   prospect = list_entry(e, struct thread, allelem);
+  //   if (prospect->tid == child_tid)
+  //   {
+  //     child = prospect;
+  //     break;
+  //   }
+  //   e = list_next(e);
+  // }
+  // printf("after while\n");
+  // if (child != NULL) {
+  //   while (child->status != THREAD_DYING)
+  //   {
+  //     thread_yield();
+  //     printf("hi\n");
+  //   }
+  // }
+
+  // while(1){
+    // printf("\n\nTimer sleep start\n\n");
+    timer_msleep(2000);
+    // printf("\n\nTimer sleep complete\n\n");
+    // struct thread *prospect, *child;
+    // struct list_elem *e = list_begin(&all_list);
+  // }
+
+  return 0;
 }
 
 /* Free the current process's resources. */
@@ -235,7 +250,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (char *file_name, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -254,10 +269,27 @@ load (const char *file_name, void (**eip) (void), void **esp)
   int input_length = strlen(file_name);
 
   /* Small change for allowing loading of the file using file_name*/
-  char * save_ptr, * prog_name;
+  char * save_ptr, * prog_name, *s_ptr, *c_ptr;
+  c_ptr = file_name; s_ptr = file_name;
+  // printf("PRE-trimmed string: '%s'\n", s_ptr);
+  // while(*(s_ptr-1) != '\0') {
+  //   if(*s_ptr == ' ' && *(s_ptr+1) == ' ')
+  //     s_ptr++;
+  //   else {
+  //     *c_ptr = *s_ptr;
+  //     c_ptr++; s_ptr++;
+  //   }
+  // }
+  while(*s_ptr !='\0') {
+    if(*s_ptr == ' ' && *(s_ptr+1) == ' ')
+      for(c_ptr=s_ptr; *c_ptr; c_ptr++) *c_ptr = *(c_ptr+1);
+    else s_ptr++;
+  }
+  // printf("'%x'\n", file_name);
+  // printf("trimmed string: '%s'\n", file_name);
   prog_name = strtok_r (file_name, " ", &save_ptr);
 
-  printf("Filename with length %d received as %s::%s\n", input_length, file_name, save_ptr);
+  // printf("Filename with length %d received as %s::%s\n", input_length, file_name, save_ptr);
 
   /* Open executable file. */
   file = filesys_open (file_name);
@@ -351,22 +383,25 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /*-------------------------------------------------------------------------------------------------------------
             Populating stack with all arguments and addresses
   ---------------------------------------------------------------------------------------------------------------*/
+  /* Elemination of duplicate spaces*/
+  
+
   /* Pointer to the start of actual data segment in memory */
   char * pMemory =  PHYS_BASE - input_length - 1;
   strlcpy(pMemory, file_name, input_length+1);
 
-  printf("value put at location %p is '%s' %d\n", (void *) pMemory, pMemory, strlen(file_name));
+  // printf("value put at location %p is '%s' %d\n", (void *) pMemory, pMemory, strlen(file_name));
 
   int argc = 1;
 
   if(strlen(save_ptr)>0) {
     pMemory += strlen(file_name)+1;
     strlcpy(pMemory, save_ptr, input_length);
-    printf("value put at second location %p is '%s' \n", (void *) pMemory, pMemory);
+    // printf("value put at second location %p is '%s' \n", (void *) pMemory, pMemory);
 
     for(;pMemory<PHYS_BASE;pMemory++)
       // if(*pMemory == " ") {
-      if(*pMemory == ' ' || pMemory == PHYS_BASE - 1) {
+      if((*pMemory == ' ' && *(pMemory+1)!= ' ') || pMemory == PHYS_BASE - 1) {
         *pMemory = '\0';
         argc++;
       }
@@ -407,7 +442,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     int offset = 4;
     for(char * ii = PHYS_BASE - input_length - 1; ii<PHYS_BASE-1; ii++) {
       if(*ii == 0){
-        printf("%x %x : %x %x %x %x\n", pMemory+12+offset, ii+1, ((int)(ii + 1) & 0x000000ffUL), \
+        if(*(ii+1)=='\0')
+          continue;
+        // printf("%x %x : %x %x %x %x\n", pMemory+12+offset, ii+1, ((int)(ii + 1) & 0x000000ffUL), \
         ((int)(ii + 1) & 0x0000ff00UL) >> 8, ((int)(ii + 1) & 0x00ff0000UL) >> 16, ((int)(ii + 1) & 0xff000000UL) >> 24);
 
         *(pMemory+12+offset) = ii + 1;
@@ -424,15 +461,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   // for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
   //   printf("%c, %c, %c, %c\n", *(ii-3), *(ii-2), *(ii-1), *ii);
-  printf("Final esp :: %x\n\n", final_);
-  printf("done populating\n");
+  // printf("Final esp :: %x\n\n", final_);
+  // printf("done populating\n");
   /*-------------------------------------------------------------------------------------------------------------
             Done polulating
   ---------------------------------------------------------------------------------------------------------------*/
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
-  printf("File closed\n");
+  // printf("File closed\n");
   *esp = final_;
   return success;
 }

@@ -115,50 +115,51 @@ do
         fi
     else
         echo -e "\033[0;44m PENDING\033[0m"
+        pend=$((pend + 1))
     fi
 done
 
 
-echo
-echo -e "\033[4;1;45;33m                  Tests for no-vm                    \033[0m"
-echo
-echo -n "no-vm/multi-oom.result"
-printf "%0.s\t" $(seq 1 $len)
+# echo
+# echo -e "\033[4;1;45;33m                  Tests for no-vm                    \033[0m"
+# echo
+# echo -n "no-vm/multi-oom.result"
+# printf "%0.s\t" $(seq 1 $len)
 
-if [ -f ./build/tests/userprog/no-vm/multi-oom.result ]; then
-    state=$(head -1 ./build/tests/userprog/no-vm/multi-oom.result)
-    if [ $state = "PASS" ]; then
-        echo -e "\033[0;42m $state\033[0m"
-    else
-        echo -e "\033[0;41m $state\033[0m"
-    fi
-else
-    echo -e "\033[0;44m PENDING\033[0m"
-fi
+# if [ -f ./build/tests/userprog/no-vm/multi-oom.result ]; then
+#     state=$(head -1 ./build/tests/userprog/no-vm/multi-oom.result)
+#     if [ $state = "PASS" ]; then
+#         echo -e "\033[0;42m $state\033[0m"
+#     else
+#         echo -e "\033[0;41m $state\033[0m"
+#     fi
+# else
+#     echo -e "\033[0;44m PENDING\033[0m"
+# fi
 
-echo
-echo -e "\033[4;1;45;33m                  Tests for filesys                  \033[0m"
-echo
-for i in ${fl2[@]}
-do
+# echo
+# echo -e "\033[4;1;45;33m                  Tests for filesys                  \033[0m"
+# echo
+# for i in ${fl2[@]}
+# do
     
-    len=$(echo -n $i | wc -c)
-    len=$(expr $len / 8)
-    len=$(expr 6 - $len)
-    echo -n $i
-    printf "%0.s\t" $(seq 1 $len)
+#     len=$(echo -n $i | wc -c)
+#     len=$(expr $len / 8)
+#     len=$(expr 6 - $len)
+#     echo -n $i
+#     printf "%0.s\t" $(seq 1 $len)
     
-    if [ -f ./build/tests/filesys/base/$i ]; then
-        state=$(head -1 ./build/tests/filesys/base/$i)
-        if [ $state = "PASS" ]; then
-            echo -e "\033[0;42m $state\033[0m"
-        else
-            echo -e "\033[0;41m $state\033[0m"
-        fi
-    else
-        echo -e "\033[0;44m PENDING\033[0m"
-    fi
-done
+#     if [ -f ./build/tests/filesys/base/$i ]; then
+#         state=$(head -1 ./build/tests/filesys/base/$i)
+#         if [ $state = "PASS" ]; then
+#             echo -e "\033[0;42m $state\033[0m"
+#         else
+#             echo -e "\033[0;41m $state\033[0m"
+#         fi
+#     else
+#         echo -e "\033[0;44m PENDING\033[0m"
+#     fi
+# done
 
 echo
 echo -e "Tests failed:    \033[5;31m $fail\033[0m"
