@@ -27,6 +27,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
   case SYS_EXIT: // args: 1
     printf("SYS_EXIT\n");
+    thread_exit();
     break;
   case SYS_EXEC: // args: 1
     printf("SYS_EXEC\n");
@@ -51,16 +52,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
   case SYS_WRITE: // args: 3
     printf("SYS_WRITE\n");
+    printf("ESP is %x\n",esp);
     int32_t * arg0 = esp + 4;
-    char * arg1 = esp + 8;
+    char ** arg1 = esp + 8;
     int32_t * arg2 = esp + 12;
     printf("SYS_WRITE:%x\n", *arg0);
     printf("size:%d || %x\n", *arg2, *arg2);
-    printf("buffer:%s\n", (void *)arg1);
-    printf("BUFFER:");
-    for(int i=0;i<*arg2;i++)
-      printf("%c %x\n", arg1[i], arg1[i]);
-    printf("\nEND\n");
+    printf("%s\n", (char *)(*arg1));
+    // printf("BUFFER:");
+    // for(int i=0;i<*arg2;i++)
+    //   printf("%c %x\n", arg1[i], arg1[i]);
+    // printf("\nEND\n");
       
     break;
   case SYS_SEEK: // args: 2
@@ -77,7 +79,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     break;
   }
 
-  thread_exit ();
+  // thread_exit ();
 
 }
 

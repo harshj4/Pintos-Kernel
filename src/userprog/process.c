@@ -19,10 +19,10 @@
 #include "threads/vaddr.h"
 #include "syscall.h"
 #include <stdio.h>
+#include <list.h>
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -99,10 +99,26 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1){
-
+  printf("current thread is %s\n",thread_current()->name);
+  struct thread *prospect, *child;
+  struct list_elem *e = list_begin(&all_list);
+  while(e!=list_end(&all_list)) {
+    prospect = list_entry (e, struct thread, elem);
+    if(prospect->tid == child_tid) {
+      child = prospect;
+      break;
+      }
+    e = list_next(e);
   }
-  return -1;
+  printf("after while\n");
+  if(child!=NULL){
+      while(prospect->status!= THREAD_DYING){  
+        // thread_yield();
+      printf("hi\n");
+  }
+  }
+  
+return -1;
 }
 
 /* Free the current process's resources. */
@@ -111,7 +127,6 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -138,7 +153,6 @@ void
 process_activate (void)
 {
   struct thread *t = thread_current ();
-
   /* Activate thread's page tables. */
   pagedir_activate (t->pagedir);
 
@@ -339,7 +353,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   ---------------------------------------------------------------------------------------------------------------*/
   /* Pointer to the start of actual data segment in memory */
   char * pMemory =  PHYS_BASE - input_length - 1;
-  strlcpy(pMemory, file_name, input_length);
+  strlcpy(pMemory, file_name, input_length+1);
 
   printf("value put at location %p is '%s' %d\n", (void *) pMemory, pMemory, strlen(file_name));
 
@@ -411,7 +425,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   // for(char * ii = PHYS_BASE-1; ii >= final_; ii-=4)
   //   printf("%c, %c, %c, %c\n", *(ii-3), *(ii-2), *(ii-1), *ii);
   printf("Final esp :: %x\n\n", final_);
-
+  printf("done populating\n");
   /*-------------------------------------------------------------------------------------------------------------
             Done polulating
   ---------------------------------------------------------------------------------------------------------------*/

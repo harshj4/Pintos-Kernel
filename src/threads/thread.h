@@ -95,7 +95,6 @@ struct thread
     struct list_elem elem;              /* List element. */
     // int64_t sleep_ts;
     // int64_t sleep_dur;
-    
     /* TODO */
     int64_t sleep_wt;                   /* Wake time stamp for looping through blocked list. */
 
@@ -143,5 +142,9 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* List of all processes.  Processes are added to this list
+   when they are first scheduled and removed when they exit. */
+static struct list all_list;
 
 #endif /* threads/thread.h */
