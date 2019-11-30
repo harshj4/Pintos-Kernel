@@ -108,8 +108,9 @@ struct thread
     
     // Extra variables used.
 
-    int8_t exit_status;                /* Exit status to print. */
-    struct file * fdt[10];
+    int8_t exit_status;                 /* Exit status to print. */
+    struct file * fdt[10];              /* File Descriptor Table*/
+    struct list_elem stat_elem;              /* Status list element. */
 #endif
 
     /* Owned by thread.c. */
@@ -152,12 +153,6 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-/* List of all processes.  Processes are added to this list
-   when they are first scheduled and removed when they exit. */
-static struct list all_list;
-
-/* List of processes in THREAD_READY state, that is, processes
-   that are ready to run but not actually running. */
-static struct list ready_list;
+static struct list status_board;
 
 #endif /* threads/thread.h */

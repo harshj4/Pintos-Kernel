@@ -105,31 +105,9 @@ start_process (void *file_name_)
 int process_wait(tid_t child_tid UNUSED) {
 
   // printf("current thread is %s\n", thread_current()->name);
-
-  // while(1){
-    // printf("\n\nTimer sleep start\n\n");
-    // timer_msleep(2000);
-    // printf("\n\nTimer sleep complete\n\n");
-    // struct thread *prospect, *child;
-    // struct list_elem *e = list_begin(&all_list);
-  // }
-
   timer_msleep(200);
-  // struct thread *prospect, *child;
-  // for (struct list_elem *e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e))
-  // {
-  //   prospect = list_entry (e, struct thread, elem);
-  //   if(prospect->tid == child_tid)
-  //     child = prospect;
-  // }
 
-  // while(1) {
-  //   if(child->status == THREAD_DYING) {
-  //     return child->exit_status;
-  //   }
-  // }
-
-  return 0;
+  return -1;
 }
 
 /* Free the current process's resources. */

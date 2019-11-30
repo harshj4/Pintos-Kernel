@@ -26,9 +26,14 @@ static struct list ready_list;
 
 /* TODO: new variables*/
 static struct list blocked_list;
-static struct hash priority_bucket;
 
+/* List of all processes.  Processes are added to this list
+   when they are first scheduled and removed when they exit. */
+static struct list all_list;
 
+/* List of processes in THREAD_READY state, that is, processes
+   that are ready to run but not actually running. */
+static struct list ready_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -94,6 +99,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&status_board);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -285,6 +291,9 @@ thread_exit (void)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
+  // Closing all open descriptors on thread kill.
+  for(int i = 2; i<10; i++)
+    file_close(thread_current ()->fdt[i]);
   process_exit ();
 #endif
 

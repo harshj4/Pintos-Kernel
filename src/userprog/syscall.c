@@ -1,4 +1,5 @@
 #include "userprog/syscall.h"
+#include "userprog/process.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
@@ -6,6 +7,8 @@
 #include "threads/vaddr.h"
 #include "pagedir.h"
 #include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "devices/input.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -23,7 +26,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   // printf ("%p %p %p\n", esp, (esp+4), (esp+8));
   // printf ("%x : %x %x\n", esp, ((char *)f->esp), *((char *)f->esp));
   struct thread * cur = thread_current();
-  char ** filename;
+  char ** filename, ** buffer;
+  int * file_desc;
 
   if(!is_user_vaddr (esp) || esp >= 0xbffffffc || esp < 0x08048000) {
     cur->exit_status = -1; thread_exit();
@@ -66,18 +70,29 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_EXEC: ;// args: 1
     // printf("SYS_EXEC\n");
     // const char **file = (esp + 4) >= 0xbffffffc ? NULL : esp + 4;
-    const char **file = *((const char *) pagedir_get_page(cur->pagedir, esp+4));
-    if (file == NULL) {
+
+    // const char **file = *((const char *) pagedir_get_page(cur->pagedir, esp+4));
+    // if (file == NULL) {
+    //   cur->exit_status = -1;
+    //   thread_exit();
+    // }
+
+    filename = pagedir_get_page(cur->pagedir, esp+4);
+    if (*filename == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
+    // process_wait(process_execute(*file));
+    // f->eax = process_execute(*file);
     break;
   
   /*----------------------------------------------------------*/
   /*                          Wait                            */
   /*----------------------------------------------------------*/
-  case SYS_WAIT: // args: 1
-    printf("SYS_WAIT\n");
+  case SYS_WAIT: ;// args: 1
+    // printf("SYS_WAIT\n");
+    tid_t * child = pagedir_get_page(cur->pagedir, esp+4);
+    f->eax = process_wait(child);
     break;
   
   /*----------------------------------------------------------*/
@@ -89,11 +104,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     // char ** new_file = pagedir_get_page(cur->pagedir, esp+4);      // arg0
     filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
     unsigned * init_size = pagedir_get_page(cur->pagedir, esp+8);     // arg1
-    if (*filename == NULL || init_size == NULL) {
+    if (*filename == NULL || init_size == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
-    f->eax = (uint32_t) filesys_create(*filename, *init_size);
+    // f->eax = (uint32_t) filesys_create(*filename, *init_size);
+    f->eax = filesys_create(*filename, *init_size);
 
     break;
   
@@ -118,7 +134,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_OPEN: // args: 1
     // printf("SYS_OPEN\n");
     filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
-    if (*filename == NULL) {
+    if (*filename == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -145,44 +161,108 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*                        Filesize                          */
   /*----------------------------------------------------------*/
   case SYS_FILESIZE: // args: 1
-    printf("SYS_FILESIZE\n");
+    // printf("SYS_FILESIZE\n");
+    file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
+    if (file_desc == NULL || cur->fdt[*file_desc] == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+
+    f->eax = file_length(cur->fdt[*file_desc]);
     break;
   
   /*----------------------------------------------------------*/
   /*                          Read                            */
   /*----------------------------------------------------------*/
   case SYS_READ: // args: 3
-    printf("SYS_READ\n");
+    // printf("SYS_READ\n");
+    file_desc = pagedir_get_page(cur->pagedir, esp+4);              // arg0
+    buffer = pagedir_get_page(cur->pagedir, esp+8);                 // arg1
+    int32_t * read_size = pagedir_get_page(cur->pagedir, esp+12);   // arg2
+    
+    // int32_t * fd = esp + 4;     // arg1
+    // char ** buffer = esp + 8;   // arg1
+    // int32_t * size = esp + 12;  // arg2
+
+    if (*file_desc > 9 || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    else if(*file_desc == 0) {// read
+      // printf("%s", (char *)(*buffer));
+      // getc(*buffer);
+      int ch = 0;
+      // *buffer = input_getc();
+      while((*(*buffer + ch) != '\0' || *(*buffer + ch) != '\r') && ch < *read_size) {
+        *(*buffer + ch) = input_getc();
+        ch++;
+      }
+      f->eax = ch;
+    }  
+    else if (*file_desc == 1 ||file_desc == NULL || cur->fdt[*file_desc] == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    else {
+      f->eax = file_read(cur->fdt[*file_desc], *buffer, *read_size);
+    }
     break;
   
   /*----------------------------------------------------------*/
   /*                          Write                           */
   /*----------------------------------------------------------*/
-  case SYS_WRITE:; // args: 3
+  case SYS_WRITE: // args: 3
 
-    int32_t * fd = pagedir_get_page(cur->pagedir, esp+4);     // arg0
-    char ** buffer = pagedir_get_page(cur->pagedir, esp+8);   // arg1
+    file_desc = pagedir_get_page(cur->pagedir, esp+4);        // arg0
+    buffer = pagedir_get_page(cur->pagedir, esp+8);   // arg1
     int32_t * size = pagedir_get_page(cur->pagedir, esp+12);  // arg2
     
     // int32_t * fd = esp + 4;     // arg1
     // char ** buffer = esp + 8;   // arg1
     // int32_t * size = esp + 12;  // arg2
 
-    printf("%s", (char *)(*buffer));
+    if (*file_desc > 9 || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    else if(*file_desc == 1) {
+      printf("%s", (char *)(*buffer));
+      f->eax = *size;
+    }
+    else if (*file_desc == 0 ||file_desc == NULL || cur->fdt[*file_desc] == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    else {
+      f->eax = file_write(cur->fdt[*file_desc], *buffer, *size);
+    }
+    
     break;
   
   /*----------------------------------------------------------*/
   /*                          Seek                            */
   /*----------------------------------------------------------*/
   case SYS_SEEK: // args: 2
-    printf("SYS_SEEK\n");
+    // printf("SYS_SEEK\n");
+    file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
+    int32_t * pos = pagedir_get_page(cur->pagedir, esp+8);            // arg1
+    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL || pos == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    file_seek(cur->fdt[*file_desc], *pos);
     break;
   
   /*----------------------------------------------------------*/
   /*                          Tell                            */
   /*----------------------------------------------------------*/
   case SYS_TELL: // args: 1
-    printf("SYS_TELL\n");
+    // printf("SYS_TELL\n");
+    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
+      cur->exit_status = -1;
+      thread_exit();
+    }
+    f->eax = file_tell(cur->fdt[*file_desc]);
     break;
   
   /*----------------------------------------------------------*/
@@ -190,6 +270,14 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*----------------------------------------------------------*/
   case SYS_CLOSE: // args: 1
     // printf("SYS_CLOSE\n");
+    file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
+    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
+      // cur->exit_status = -1;
+      // thread_exit();
+    }
+    else {
+      file_close(cur->fdt[*file_desc]);
+    }
     break;
   
   /*----------------------------------------------------------*/
