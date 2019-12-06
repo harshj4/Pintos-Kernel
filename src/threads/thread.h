@@ -29,21 +29,22 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+#define MAX_FD 126                      /* Max File Descriptors. */
 
-#ifdef USERPROG
+// #ifdef USERPROG
 // static struct list * status_board;
-static struct list status_board;
+struct list status_board;
  struct sbi{
   tid_t tid;
   tid_t parent;
-  int8_t exit_status;
+  int64_t exit_status;
   enum thread_status status;
   bool used;
   struct list_elem sb_elem; 
 };
 typedef struct sbi sb_item;
 static struct lock sb_lock;
-#endif
+// #endif
 
 /* A kernel thread or user process.
 
@@ -124,9 +125,8 @@ struct thread
     
     // Extra variables used.
 
-    int8_t exit_status;                 /* Exit status to print. */
-    struct file * fdt[10];              /* File Descriptor Table*/
-    struct list_elem stat_elem;              /* Status list element. */
+    int64_t exit_status;                 /* Exit status to print. */
+    struct file * fdt[MAX_FD];              /* File Descriptor Table*/
 #endif
 
     /* Owned by thread.c. */

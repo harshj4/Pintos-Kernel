@@ -40,28 +40,24 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
   strlcpy(file_copy,file_name,PGSIZE);
-  char *token, *save_ptr;
-  // for (token = strtok_r (file_name, " ", &save_ptr); token != NULL;
-  // token = strtok_r (NULL, " ", &save_ptr)){
-  //     printf ("Token is: '%s'\n", token);   
-  // }
+  char *save_ptr;
   
   char* tname = strtok_r (file_copy, " ", &save_ptr);
+
+  struct inode *inode = NULL;
+  if(!dir_lookup (dir_open_root(), tname, &inode)) {
+    inode_close (inode);
+    return -1;
+  }
+  else inode_close (inode);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (tname, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
-
-  // sb_item entry;
-
-  // entry.tid = tid;
-  // entry.exit_status = 0;
-  // entry.status = THREAD_READY;
-  // entry.used = false;
-  // list_push_front(&status_board, &entry.sb_elem);
-  // printf("file name is %s \n",fn_copy);
-  // printf("this is after thread create\n");
+    palloc_free_page (fn_copy);
+  
+  // printf("|tid:%d|", tid);
+  
   return tid;
 }
 
@@ -111,12 +107,35 @@ int process_wait(tid_t child_tid UNUSED) {
 
   // printf("current thread is %s\n", thread_current()->name);
   tid_t cur_tid = thread_current()->tid;
-  if(cur_tid == child_tid)
+  if(cur_tid == child_tid || child_tid < 0)
     return -1;
-  
-  timer_msleep(200);
+  timer_msleep(100);
 
-  return 0;
+  sb_item * prospect;
+
+  struct list_elem *e = list_begin(&status_board);
+  while( e != list_end(&status_board)){
+    prospect = list_entry(e, sb_item, sb_elem);
+    if(prospect->tid == child_tid) {
+      break;
+    }
+    else prospect = NULL;
+    e = list_next(e);
+  }
+
+  if(prospect != NULL) {
+    if(prospect->used) 
+      return -1;
+    
+    while(prospect->status != THREAD_DYING)
+      thread_yield();
+    
+    prospect->used = true;
+    return prospect->exit_status;
+  }
+  else return -1;
+
+  return -1;        // Unnecessary but kept as is.
 }
 
 /* Free the current process's resources. */
@@ -437,7 +456,7 @@ load (char *file_name, void (**eip) (void), void **esp)
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   // printf("File closed\n");
-  *esp = final_;
+  *esp = final_;  
   return success;
 }
 

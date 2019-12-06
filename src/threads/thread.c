@@ -99,6 +99,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&status_board);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -205,6 +206,13 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  sb_item *meta = malloc(sizeof(sb_item));
+  meta->status = THREAD_READY;
+  meta->exit_status = -1;
+  meta->tid = tid;
+  meta->used = false;
+  list_push_back(&status_board, &meta->sb_elem);
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -292,9 +300,18 @@ thread_exit (void)
 #ifdef USERPROG
   struct thread *t = thread_current ();
   // Closing all open descriptors on thread kill.
-  for(int i = 2; i<10; i++)
+  for(int i = 2; i < MAX_FD; i++)
     if(t->fdt[i] != NULL)
       file_close(t->fdt[i]);
+  sb_item * prospect;
+  for(struct list_elem *e = list_begin(&status_board); e != list_end(&status_board); e = list_next(e)){
+    prospect = list_entry(e, sb_item, sb_elem);
+    if(prospect->tid == t->tid) {
+      prospect->exit_status = t->exit_status;
+      prospect->status = THREAD_DYING;
+      break;
+    }
+  }
   process_exit ();
 #endif
 

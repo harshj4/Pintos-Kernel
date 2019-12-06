@@ -10,6 +10,7 @@
 #include "filesys/file.h"
 #include "devices/input.h"
 #include "devices/shutdown.h"
+#include <string.h>
 
 static void syscall_handler (struct intr_frame *);
 
@@ -44,7 +45,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   //   thread_current()->exit_status = -1; thread_exit();  
   // }
 
-  switch (*((char *)f->esp))
+  switch (*((char *)esp))
   {
   /*----------------------------------------------------------*/
   /*                          HALT                            */
@@ -71,13 +72,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*----------------------------------------------------------*/
   case SYS_EXEC: ;// args: 1
     // printf("SYS_EXEC\n");
-    // const char **file = (esp + 4) >= 0xbffffffc ? NULL : esp + 4;
-
-    // const char **file = *((const char *) pagedir_get_page(cur->pagedir, esp+4));
-    // if (file == NULL) {
-    //   cur->exit_status = -1;
-    //   thread_exit();
-    // }
 
     filename = pagedir_get_page(cur->pagedir, esp+4);
     if (*filename == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
@@ -85,7 +79,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       // thread_exit();
       f->eax = -1;
     }
-    // process_wait(process_execute(*file));
     else f->eax = process_execute(*filename);
     break;
   
@@ -95,7 +88,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_WAIT: ;// args: 1
     // printf("SYS_WAIT\n");
     tid_t * child = pagedir_get_page(cur->pagedir, esp+4);
-    f->eax = process_wait(child);
+    f->eax = process_wait(*child);
     break;
   
   /*----------------------------------------------------------*/
@@ -142,7 +135,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       thread_exit();
     }
 
-    for(int i = 2; i<10; i++) {
+    for(int i = 2; i < MAX_FD; i++) {
       if(cur->fdt[i] == NULL) {
         cur->fdt[i] = filesys_open(*filename);
         if (cur->fdt[i] == NULL) {
@@ -182,12 +175,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     file_desc = pagedir_get_page(cur->pagedir, esp+4);              // arg0
     buffer = pagedir_get_page(cur->pagedir, esp+8);                 // arg1
     int32_t * read_size = pagedir_get_page(cur->pagedir, esp+12);   // arg2
-    
-    // int32_t * fd = esp + 4;     // arg1
-    // char ** buffer = esp + 8;   // arg1
-    // int32_t * size = esp + 12;  // arg2
 
-    if (*file_desc > 9 || buffer == NULL || *buffer == NULL) {
+    if (*file_desc >= MAX_FD || *file_desc < 0 || buffer == NULL || *buffer == NULL || *buffer >= PHYS_BASE) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -219,12 +208,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     file_desc = pagedir_get_page(cur->pagedir, esp+4);        // arg0
     buffer = pagedir_get_page(cur->pagedir, esp+8);   // arg1
     int32_t * size = pagedir_get_page(cur->pagedir, esp+12);  // arg2
-    
-    // int32_t * fd = esp + 4;     // arg1
-    // char ** buffer = esp + 8;   // arg1
-    // int32_t * size = esp + 12;  // arg2
 
-    if (*file_desc > 9 || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
+    if (*file_desc >= MAX_FD || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -249,7 +234,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     // printf("SYS_SEEK\n");
     file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
     int32_t * pos = pagedir_get_page(cur->pagedir, esp+8);            // arg1
-    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL || pos == NULL) {
+    if (*file_desc == NULL || *file_desc >= MAX_FD || cur->fdt[*file_desc] == NULL || pos == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -261,7 +246,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*----------------------------------------------------------*/
   case SYS_TELL: // args: 1
     // printf("SYS_TELL\n");
-    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
+    if (*file_desc == NULL || *file_desc >= MAX_FD || cur->fdt[*file_desc] == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -274,7 +259,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_CLOSE: // args: 1
     // printf("SYS_CLOSE\n");
     file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
-    if (file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
+    if (file_desc == NULL || *file_desc >= MAX_FD || cur->fdt[*file_desc] == NULL) {
       // cur->exit_status = -1;
       // thread_exit();
     }
