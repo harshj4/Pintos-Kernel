@@ -99,7 +99,6 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  list_init (&status_board);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -291,9 +290,11 @@ thread_exit (void)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
+  struct thread *t = thread_current ();
   // Closing all open descriptors on thread kill.
   for(int i = 2; i<10; i++)
-    file_close(thread_current ()->fdt[i]);
+    if(t->fdt[i] != NULL)
+      file_close(t->fdt[i]);
   process_exit ();
 #endif
 

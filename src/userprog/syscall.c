@@ -9,6 +9,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "devices/input.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -51,6 +52,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_HALT: // args: 0
     // TODO: Need to implement halting properly
     // printf("SYS_HALT\n");
+    shutdown_power_off();
     break;
   
   /*----------------------------------------------------------*/
@@ -79,11 +81,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     filename = pagedir_get_page(cur->pagedir, esp+4);
     if (*filename == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
-      cur->exit_status = -1;
-      thread_exit();
+      // cur->exit_status = -1;
+      // thread_exit();
+      f->eax = -1;
     }
     // process_wait(process_execute(*file));
-    // f->eax = process_execute(*file);
+    else f->eax = process_execute(*filename);
     break;
   
   /*----------------------------------------------------------*/
@@ -184,7 +187,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     // char ** buffer = esp + 8;   // arg1
     // int32_t * size = esp + 12;  // arg2
 
-    if (*file_desc > 9 || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
+    if (*file_desc > 9 || buffer == NULL || *buffer == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
@@ -271,12 +274,14 @@ syscall_handler (struct intr_frame *f UNUSED)
   case SYS_CLOSE: // args: 1
     // printf("SYS_CLOSE\n");
     file_desc = pagedir_get_page(cur->pagedir, esp+4);                // arg0
-    if (*file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
+    if (file_desc == NULL || *file_desc > 9 || cur->fdt[*file_desc] == NULL) {
       // cur->exit_status = -1;
       // thread_exit();
     }
     else {
+      file_allow_write(cur->fdt[*file_desc]);
       file_close(cur->fdt[*file_desc]);
+      cur->fdt[*file_desc] = NULL;
     }
     break;
   

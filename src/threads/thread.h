@@ -5,6 +5,7 @@
 #include <list.h>
 #include <hash.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 #ifdef USERPROG   // Includes for project 2
 #include "filesys/file.h"
@@ -28,6 +29,21 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+#ifdef USERPROG
+// static struct list * status_board;
+static struct list status_board;
+ struct sbi{
+  tid_t tid;
+  tid_t parent;
+  int8_t exit_status;
+  enum thread_status status;
+  bool used;
+  struct list_elem sb_elem; 
+};
+typedef struct sbi sb_item;
+static struct lock sb_lock;
+#endif
 
 /* A kernel thread or user process.
 
@@ -153,6 +169,5 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-static struct list status_board;
 
 #endif /* threads/thread.h */

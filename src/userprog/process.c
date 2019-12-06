@@ -8,9 +8,6 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
-#include "filesys/directory.h"
-#include "filesys/file.h"
-#include "filesys/filesys.h"
 #include "threads/flags.h"
 #include "threads/init.h"
 #include "threads/interrupt.h"
@@ -55,6 +52,14 @@ process_execute (const char *file_name)
   tid = thread_create (tname, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+
+  // sb_item entry;
+
+  // entry.tid = tid;
+  // entry.exit_status = 0;
+  // entry.status = THREAD_READY;
+  // entry.used = false;
+  // list_push_front(&status_board, &entry.sb_elem);
   // printf("file name is %s \n",fn_copy);
   // printf("this is after thread create\n");
   return tid;
@@ -105,9 +110,13 @@ start_process (void *file_name_)
 int process_wait(tid_t child_tid UNUSED) {
 
   // printf("current thread is %s\n", thread_current()->name);
+  tid_t cur_tid = thread_current()->tid;
+  if(cur_tid == child_tid)
+    return -1;
+  
   timer_msleep(200);
 
-  return -1;
+  return 0;
 }
 
 /* Free the current process's resources. */
