@@ -36,14 +36,14 @@ typedef int tid_t;
 struct list status_board;
 
 struct sbi{
-tid_t tid;
-tid_t parent;
-int64_t exit_status;
-enum thread_status status;
-bool used;
-struct list_elem sb_elem; 
-struct semaphore file_sema;
-char filename[16];
+  tid_t tid;
+  tid_t parent;
+  int64_t exit_status;
+  enum thread_status status;
+  bool used;
+  struct list_elem sb_elem; 
+  struct semaphore file_sema;
+  char filename[16];
 };
 
 typedef struct sbi sb_item;
