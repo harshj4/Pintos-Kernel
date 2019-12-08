@@ -56,7 +56,6 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   
-  // printf("|tid:%d|", tid);
   
   return tid;
 }
@@ -69,12 +68,12 @@ start_process (void *file_name_)
   char *file_name = file_name_;
   struct intr_frame if_;
   bool success;
-
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
+  
   success = load (file_name, &if_.eip, &if_.esp);
 
   /* If load failed, quit. */
@@ -83,7 +82,19 @@ start_process (void *file_name_)
     printf("load failed");
     thread_exit ();
   }
+  sb_item * prospect;
 
+  struct list_elem *e = list_begin(&status_board);
+  while( e != list_end(&status_board)){
+    prospect = list_entry(e, sb_item, sb_elem);
+    if(prospect->tid == thread_current()->tid) {
+      break;
+    }
+    else prospect = NULL;
+    e = list_next(e);
+  }
+  sema_down(&prospect->file_sema);
+  // printf("Sema down done \n");
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -104,8 +115,6 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-
-  // printf("current thread is %s\n", thread_current()->name);
   tid_t cur_tid = thread_current()->tid;
   if(cur_tid == child_tid || child_tid < 0)
     return -1;
@@ -160,7 +169,19 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-    printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
+    sb_item * prospect;
+
+  struct list_elem *e = list_begin(&status_board);
+  while( e != list_end(&status_board)){
+    prospect = list_entry(e, sb_item, sb_elem);
+    if(prospect->tid == thread_current()->tid) {
+      break;
+    }
+    else prospect = NULL;
+    e = list_next(e);
+  }
+  sema_up(&prospect->file_sema);
+  printf ("%s: exit(%d)\n", cur->name, cur->exit_status);
 }
 
 /* Sets up the CPU for running user code in the current

@@ -100,7 +100,6 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
   list_init(&status_board);
-
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -211,8 +210,9 @@ thread_create (const char *name, int priority,
   meta->exit_status = -1;
   meta->tid = tid;
   meta->used = false;
+  strlcpy(meta->filename,name,sizeof(meta->filename));
+  sema_init(&meta->file_sema,1);
   list_push_back(&status_board, &meta->sb_elem);
-
   /* Add to run queue. */
   thread_unblock (t);
 

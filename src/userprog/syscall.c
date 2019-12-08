@@ -30,7 +30,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   struct thread * cur = thread_current();
   char ** filename, ** buffer;
   int * file_desc;
-
+  char * opened_file[20];
   if(!is_user_vaddr (esp) || esp >= 0xbffffffc || esp < 0x08048000) {
     cur->exit_status = -1; thread_exit();
   }
@@ -60,11 +60,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*                          Exit                            */
   /*----------------------------------------------------------*/
   case SYS_EXIT: ; // args: 1
-    // int8_t status = (esp + 4) >= 0xbffffffc ? -1 : *((int8_t *)(esp + 4));
-    // thread_current()->exit_status = status;
     cur->exit_status = *((int8_t *) pagedir_get_page(cur->pagedir, esp+4));
     thread_exit();
-    // printf("\n\nSYS_EXIT: %d\n\n", thread_current()->exit_status);
     break;
   
   /*----------------------------------------------------------*/
@@ -75,11 +72,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     filename = pagedir_get_page(cur->pagedir, esp+4);
     if (*filename == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
-      // cur->exit_status = -1;
-      // thread_exit();
-      f->eax = -1;
+      cur->exit_status = -1;
+      thread_exit();
     }
-    else f->eax = process_execute(*filename);
+    else {
+      f->eax = process_execute(*filename);
+    }
     break;
   
   /*----------------------------------------------------------*/
@@ -96,15 +94,12 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*----------------------------------------------------------*/
   case SYS_CREATE: ;// args: 2
     // printf("SYS_CREATE\n");
-    
-    // char ** new_file = pagedir_get_page(cur->pagedir, esp+4);      // arg0
     filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
     unsigned * init_size = pagedir_get_page(cur->pagedir, esp+8);     // arg1
     if (*filename == NULL || init_size == NULL || pagedir_get_page(cur->pagedir, *filename) == NULL) {
       cur->exit_status = -1;
       thread_exit();
     }
-    // f->eax = (uint32_t) filesys_create(*filename, *init_size);
     f->eax = filesys_create(*filename, *init_size);
 
     break;
@@ -114,7 +109,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*----------------------------------------------------------*/
   case SYS_REMOVE: ;// args: 1
     // printf("SYS_REMOVE\n");
-    // char ** old_file = pagedir_get_page(cur->pagedir, esp+4);      // arg0
     filename = pagedir_get_page(cur->pagedir, esp+4);                 // arg0
     if (*filename == NULL) {
       cur->exit_status = -1;
@@ -134,17 +128,16 @@ syscall_handler (struct intr_frame *f UNUSED)
       cur->exit_status = -1;
       thread_exit();
     }
-
+    
     for(int i = 2; i < MAX_FD; i++) {
       if(cur->fdt[i] == NULL) {
         cur->fdt[i] = filesys_open(*filename);
         if (cur->fdt[i] == NULL) {
-          // cur->exit_status = -1;
-          // thread_exit();
           f->eax = -1;
           break;              // not reachable
         }
         else {
+          strlcpy(opened_file,*filename,sizeof(opened_file));
           f->eax = i;
           break;
         }
@@ -181,10 +174,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       thread_exit();
     }
     else if(*file_desc == 0) {// read
-      // printf("%s", (char *)(*buffer));
-      // getc(*buffer);
       int ch = 0;
-      // *buffer = input_getc();
       while((*(*buffer + ch) != '\0' || *(*buffer + ch) != '\r') && ch < *read_size) {
         *(*buffer + ch) = input_getc();
         ch++;
@@ -208,7 +198,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     file_desc = pagedir_get_page(cur->pagedir, esp+4);        // arg0
     buffer = pagedir_get_page(cur->pagedir, esp+8);   // arg1
     int32_t * size = pagedir_get_page(cur->pagedir, esp+12);  // arg2
-
     if (*file_desc >= MAX_FD || buffer == NULL || *buffer == NULL || pagedir_get_page(cur->pagedir, *buffer) == NULL) {
       cur->exit_status = -1;
       thread_exit();
@@ -222,9 +211,29 @@ syscall_handler (struct intr_frame *f UNUSED)
       thread_exit();
     }
     else {
+      if(*opened_file != NULL){
+        struct sbi * prospect;
+        struct list_elem *e = list_begin(&status_board);
+        while( e != list_end(&status_board)){
+          prospect = list_entry(e, struct sbi, sb_elem);
+          if(strcmp(opened_file,prospect->filename) == 0) {
+            break;
+          }
+          else prospect = NULL;
+          e = list_next(e);
+        }
+        if(prospect!=NULL){
+            bool sema_ac = sema_try_down(&prospect->file_sema);
+            if(!sema_ac){
+              f->eax = 0;
+              cur->exit_status = 0;
+              break;
+            }
+        }
+        
+      }
       f->eax = file_write(cur->fdt[*file_desc], *buffer, *size);
     }
-    
     break;
   
   /*----------------------------------------------------------*/

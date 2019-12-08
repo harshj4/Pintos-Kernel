@@ -32,18 +32,23 @@ typedef int tid_t;
 #define MAX_FD 126                      /* Max File Descriptors. */
 
 // #ifdef USERPROG
-// static struct list * status_board;
+
 struct list status_board;
- struct sbi{
-  tid_t tid;
-  tid_t parent;
-  int64_t exit_status;
-  enum thread_status status;
-  bool used;
-  struct list_elem sb_elem; 
+
+struct sbi{
+tid_t tid;
+tid_t parent;
+int64_t exit_status;
+enum thread_status status;
+bool used;
+struct list_elem sb_elem; 
+struct semaphore file_sema;
+char filename[16];
 };
+
 typedef struct sbi sb_item;
 static struct lock sb_lock;
+ 
 // #endif
 
 /* A kernel thread or user process.
@@ -118,7 +123,7 @@ struct thread
     // int64_t sleep_dur;
     /* TODO: Might have done this but don't know what now. */
     int64_t sleep_wt;                   /* Wake time stamp for looping through blocked list. */
-
+    
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -168,6 +173,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-
 
 #endif /* threads/thread.h */
