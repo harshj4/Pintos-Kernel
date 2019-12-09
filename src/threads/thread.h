@@ -33,20 +33,22 @@ typedef int tid_t;
 
 // #ifdef USERPROG
 
-struct list status_board;
+struct list status_board;               /* A list for maintaining all sbi structs */
 
+/* This struct is used for storing thread related information. 
+   This information is used for implementing wait and rox system calls */
 struct sbi{
-  tid_t tid;
-  tid_t parent;
-  int64_t exit_status;
-  enum thread_status status;
-  bool used;
-  struct list_elem sb_elem; 
-  struct semaphore file_sema;
-  char filename[16];
+  tid_t tid;                            /* tid of child thread */
+  tid_t parent;                         /* tid of parent thread */
+  int64_t exit_status;                  /* exit status of child thread */
+  enum thread_status status;            /* state of child thread */
+  bool used;                            /* this ensures that parent can't wait for child twice */
+  struct list_elem sb_elem;             /* list elem of sbi to be stored in a list */
+  struct semaphore file_sema;           /* semaphore used to implement rox system call. child thread holds this semaphore until it exits. */
+  char filename[16];                    /* name of child thread file */
 };
 
-typedef struct sbi sb_item;
+typedef struct sbi sb_item;             /* a new typedef for struct sbi */
 static struct lock sb_lock;
  
 // #endif

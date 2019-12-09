@@ -51,7 +51,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*                          HALT                            */
   /*----------------------------------------------------------*/
   case SYS_HALT: // args: 0
-    // TODO: Need to implement halting properly
     // printf("SYS_HALT\n");
     shutdown_power_off();
     break;
@@ -60,7 +59,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   /*                          Exit                            */
   /*----------------------------------------------------------*/
   case SYS_EXIT: ; // args: 1
-    cur->exit_status = *((int8_t *) pagedir_get_page(cur->pagedir, esp+4));
+    cur->exit_status = *((int64_t *) pagedir_get_page(cur->pagedir, esp+4));
     thread_exit();
     break;
   

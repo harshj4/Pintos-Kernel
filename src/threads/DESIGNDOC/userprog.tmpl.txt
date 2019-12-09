@@ -1,5 +1,5 @@
 		     +--------------------------+
-         | CS 140	                  |
+         	 | CS 140	                |
 		     | PROJECT 2: USER PROGRAMS	|
 		     | DESIGN DOCUMENT        	|
 		     +--------------------------+
@@ -10,7 +10,7 @@
 
 Harshal Ganesh Jagtap <harshalg@buffalo.edu>
 Ved Harish Valsangkar <vedharis@buffalo.edu>
-Gursimran Kaur <gursimr2@buffalo.edu>
+Gursimran Kaur 		  <gursimr2@buffalo.edu>
 
 ---- PRELIMINARIES ----
 
@@ -21,9 +21,9 @@ Gursimran Kaur <gursimr2@buffalo.edu>
 >> each member of your team. If some team members contributed significantly
 >> more or less than others (e.g. 2x), indicate that here.
 
-FirstName LastName: contribution
-FirstName LastName: contribution
-FirstName LastName: contribution
+Harshal Ganesh Jagtap : System calls/test cases: WAIT, EXEC, ROX, EXIT, HALT, OPEN, CLOSE, synchronization
+Ved Harish Valsangkar : System calls/test cases: Argument passing, READ, WRITE, SEEK, TELL, FILESIZE, REMOVE
+Gursimran Kaur		  : Initial project roadmap, PINTOS setup on local linux, Design DOC, handling bad pointers and exceptions
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
@@ -84,14 +84,56 @@ ANS:	- Separation of user commands into arguments at shell level protects the ke
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+ANS:	- Following are the newly defined structs are typedefs:
+		
+		/*  This struct is used for storing thread related information. 
+			This information is used for implementing wait and rox system calls */
+		struct sbi{
+			tid_t tid;                            /* tid of child thread */
+			tid_t parent;                         /* tid of parent thread */
+			int64_t exit_status;                  /* exit status of child thread */
+			enum thread_status status;            /* state of child thread */
+			bool used;                            /* this ensures that parent can't wait for child twice */
+			struct list_elem sb_elem;             /* list elem of sbi to be stored in a list */
+			struct semaphore file_sema;           /* semaphore used to implement rox system call. child thread holds this semaphore until it exits. */
+			char filename[16];                    /* name of child thread file */
+		};
+
+		typedef struct sbi sb_item;               /* a new typedef for struct sbi */
+		#define MAX_FD 126                        /* Max Number of File Descriptors. */
+
+		- Following are the newly added members inside struct thread:
+
+		/* Owned by userprog/process.c. */
+		uint32_t *pagedir;                  		/* Page directory. */
+		
+		// Extra variables used.
+
+		int64_t exit_status;                 		/* Exit status of thread */
+		struct file * fdt[MAX_FD];             		/* File Descriptor Table*/
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
 
+ANS:	- A file descriptor table (FDT) stores struct file in an array. A file descriptor is the index to the file in FDT.
+		Whenever a file is opened using OPEN system call, an entry of struct file is stored into the FDT and it's index is returned
+		from OPEN system call.
+		- This index of file in FDT is used as an argument for READ and WRITE system calls. Inside READ & WRITE, this index is used to fetch the 
+		actual struct file from FDT. This struct is used to perform the read and write operations.
+		- File descriptors are not unique withing entire OS. They're unique within a single process. Multiple process trying to read same file might have different 
+		  file descriptors stored for the same file.
+		
 ---- ALGORITHMS ----
 
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+
+ANS:	We are using a *pagedir for each thread. In the system call handler, for reading the user process arguments, we are reading the pagedir associated with that
+		thread starting from stack pointer (*esp). We are using pagedir_get_page() method for using reading data above *esp from pagedir. Each argument is 4 bytes. Hence,
+		we are incrementing *esp by 4 each time we want to read a new argument. The value of *esp is read from the interrupt frame.
+
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -100,8 +142,25 @@ ANS:	- Separation of user commands into arguments at shell level protects the ke
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
 
+ANS: 	Minimum 1 and maximum 4 inspections are needed. The number of inspection occurred are independent of size of data copied from user space into kernel space.
+		In WRITE system call, we have done four inspections.
+			- First for checking validity of file descriptor.
+			- For checking validity of buffer address.
+			- For checking validity of address that the buffer stores as value.
+			- For checking the buffer value.
+
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
+ANS:	- We have used data members of struct sbi to implement wait system call.
+		- Whenever a parent thread tries to create a child thread, it calls thread_create() inside process_execute().
+		- Inside thread_create(), we have stored tid, exit_status & running status of child thread being created inside the struct sbi.
+		- We have then pushed elem of struct sbi into the list status_board.
+		- Hence, it is ensured that whenever thread_create() returns, an entry of struct sbi is present in the list status_board.
+		- When parent calls process_wait(), it first tries to find the elem of struct sbi from the list status_board.
+		- If it seccessfully find the element, then it check if status member of that struct is THEAD_DYING. If it is not THREAD_DYING then thread_yield().
+		- When the status finally turns THEAD_DYING, it turns the is_used data member to true and returns the exit_status data member of the child thread.
+		- If the parent can't find the child's sbi struct, then an invalid child_id has been passed to process_wait() and the function return with -1.
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -117,12 +176,26 @@ ANS:	- Separation of user commands into arguments at shell level protects the ke
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+ANS:	- To handle invalid/bad pointers being passed to the system calls, we have performed check inside every system call.
+		- To avoid writting a lot of checks to be written, we just have to check if the pointer being passed does lie inside the memory space.
+		- If lies inside the memory space, then there is possibility that it lies in the address space of another process or inside the kernel address space.
+		- We don't write any checks for above conditions and let exception occur if pad pointers are passed.
+		- All exceptions occurred due to bad pointers can be handled inside exception.c file. The exception can be caught by returning -1 as current thread's exit status 
+			and calling thread_exit()
+		- To make our code robust to exceptions that occur outside of the checks that we have implemented, we have caught exceptions in exception.c file. We have commented
+			the existing printf() and kill() function calls in exception.c and just called thread_exit() after setting exit_status to -1.
+		- It is inside exception.c file is where we can write the code the free all the temporarily allocated resources like semaphores and locks.
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+ANS:	- We have called process_execute() inside EXEC system call.
+		- process_execute() return  a valid tid if loading the new executable was successfull otherwise -1.
+		- We have passed this valid tid or -1 depending on what process_execute() returns, to interrupt frame's eax element (f->eax).
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -131,16 +204,53 @@ ANS:	- Separation of user commands into arguments at shell level protects the ke
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
 
+ANS:	- Whenever parent P calls wait(C), it looks for child C's struct sbi in the list status_board.
+		- We have ensured that struct sbi of child is present inside the list status_board by pushing this struct to list inside thread_create()
+		- process_execute() calls thread_create() inside it. thread_create() function won't return until it finishes loading the struct sbi inside the list and start the 
+			child thread.
+		- Hence, when wait(C) gets called after process_execute(), it is guaranteed that struct sbi of child is present inside the list.
+		- The elements of struct sbi of child thread are not modified until the child thread calls thread_exit(). Till that time, the parent thread yields itself inside 
+			wait(C).
+		- Hence, no matter when wait(C) is called, there are no race conditions.
+
+		SPECIAL CASE:
+		- The current mechanism for wait(C) is implemented by taking into consideration that we are using round-robin scheduling.
+		- Current implementation won't work under certain scenarios if we use priority scheduling without priority donation.
+		- The scenario is like this:
+			# Parent with higher priority creates a child with lower priority.
+			# Parent gets the CPU since it is higher priority.
+			# Parent calls wait(C). Since, child hasn't exited yet, it wait for the child to exit.
+			# But, the child will never exit because higher priority parent thread has the CPU which waiting for the child to exit.
+			# The wait(C) will never exit. Child will starve.
+
 ---- RATIONALE ----
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+ANS:	We have chosen to use the *esp from interrupt frame to be used as starting pointer to memory location. We are using pagedir_get_page() to fetch data stored at *esp.
+		This implementation if fairly easy and simple to implement. pagedir_get_page() returns the kernel virtual address corresponding the user virtual address UADDR. Hence,
+		we don't have to write code to implement any mapping on our own. This saves a lot of time and potential bugs.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
+ANS:	ADVANTAGES:
+		- Our implementation of file descriptor table FDT is simple. It is just an array of struct *file. File descriptors are nothing but indices of this array.
+		- This enables us fast access to any struct *file for READ and WRITE system calls.
+		- There are unique file descriptors per process not for the entire system.
+		
+		DISADVANTAGES:
+		- Our implementation can't handle complex file descriptors like file descriptor to a file descriptor. This is because we are only storing the struct file* inside the 
+			array.
+		- Since, our FDT is an array implementation, it can only store a fixed number of file descriptors.
+
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+ANS:	- We haven't changed the default tid_t to pid_t identity mapping.
+		- If we change it, it won't affect any the working.
+		- This is because we haven't used pid_t for anything. Each time there is a need to access any struct, we have used tid_t to access and identify everything.
+		- Hence, a changed mapping won't affect any of the implementation or results.
 
 			   SURVEY QUESTIONS
 			   ================
@@ -154,14 +264,24 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+ANS:	No. Everything was moderately difficult which took considerable amount of time but not too much of time.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+ANS:	Yes. Argument passing and reading/writting user memory were the parts which gave us greater insights about OS design.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+ANS:	Working of file descriptors.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
+ANS:	More help with the project setup. Help on how we can setup PINTOS on our own local Ubuntu/Linux system. It is really hard to work on VM images since they 
+		tend to be very slow.
+
 >> Any other comments?
+	NO.
